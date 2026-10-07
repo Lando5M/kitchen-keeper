@@ -1,0 +1,11 @@
+{
+  "name": "Kitchen Keeper",
+  "short_name": "Kitchen Keeper",
+  "description": "Shared kitchen food inventory with quantities, photos and expiration alerts.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f5f7f4",
+  "theme_color": "#173b25",
+  "orientation": "portrait-primary",
+  "icons": []
+}

@@ -98,7 +98,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 8px
 <script>
 const SUPABASE_URL='https://gprlzbgcpsmqofpjyase.supabase.co';
 const SUPABASE_KEY='sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x';
-const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
+let sb=null; try{ if(window.supabase&&window.supabase.createClient) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); }catch(e){ console.warn('Supabase client init failed',e); }
 let session=null, householdId=null, items=[], settings={expire_days:7,locations:['Pantry','Refrigerator','Freezer','Cabinet','Counter'],units:['item','package','can','bottle','jar','box','bag','lb','oz','kg','g','gal','qt','pt','liter','mL']};
 let editingId=null,pendingPhoto=null, signup=false, channel=null;
 
@@ -114,20 +114,33 @@ function showApp(){ $('authView').classList.add('hidden'); $('appView').classLis
 function switchPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('hidden',x.id!==p));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if(p==='inventory')renderInventory();if(p==='alerts')renderAlerts()}
 document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
 
-$('loginTab').onclick=()=>{signup=false;$('loginTab').classList.add('active');$('signupTab').classList.remove('active');$('authBtn').textContent='Sign in';msg('')}
-$('signupTab').onclick=()=>{signup=true;$('signupTab').classList.add('active');$('loginTab').classList.remove('active');$('authBtn').textContent='Create account';msg('')}
-$('authBtn').onclick=async()=>{
- if(!sb){msg('Kitchen Keeper could not load its connection library. Please refresh the page.');return}
+$('loginTab').addEventListener('click',function(){signup=false;$('loginTab').classList.add('active');$('signupTab').classList.remove('active');$('authBtn').textContent='Sign in';$('authPassword').autocomplete='current-password';msg('')});
+$('signupTab').addEventListener('click',function(){signup=true;$('signupTab').classList.add('active');$('loginTab').classList.remove('active');$('authBtn').textContent='Create account';$('authPassword').autocomplete='new-password';msg('')});
+async function restAuth(path,email,password){
+ const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({email,password})});
+ const data=await res.json().catch(()=>({}));
+ if(!res.ok) throw new Error(data.error_description||data.msg||data.message||'Authentication failed.');
+ return data;
+}
+$('authBtn').addEventListener('click',async function(){
  const email=$('authEmail').value.trim(),password=$('authPassword').value;
- if(!email||!password)return msg('Enter your email and password.');
+ if(!email||!password){msg('Enter your email and password.');return}
+ if(password.length<6){msg('Password must be at least 6 characters.');return}
  $('authBtn').disabled=true;msg('Working...');
  try{
-  const r=signup?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});
-  if(r.error)throw r.error;
-  if(signup&&!r.data.session){msg('Account created. Check your email if confirmation is required.');return}
-  session=r.data.session; await startApp();
+  let data;
+  if(signup){
+   data=await restAuth('signup',email,password);
+   if(data.access_token){
+    if(sb){await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});} else {msg('Account created. Please refresh and sign in.');return}
+   } else {msg('Account created. Check your email if confirmation is required.');return}
+  } else {
+   data=await restAuth('token?grant_type=password',email,password);
+   if(sb) await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token}); else {msg('Signed in, but the app connection library did not load. Please refresh.');return}
+  }
+  const r=await sb.auth.getSession();session=r.data.session;await startApp();
  }catch(e){msg(e.message||'Authentication failed.')}finally{$('authBtn').disabled=false}
-};
+});
 $('signoutBtn').onclick=async()=>{await sb.auth.signOut();session=null;householdId=null;items=[];if(channel){await sb.removeChannel(channel);channel=null}showAuth()};
 $('householdBtn').onclick=()=>{$('householdModal').classList.remove('hidden')}
 $('closeHouse').onclick=()=>{$('householdModal').classList.add('hidden')};
@@ -191,8 +204,7 @@ $('joinHouse').onclick=async()=>{const c=$('inviteCode').value.trim();if(!c)retu
 $('saveSettings').onclick=async()=>{const payload={household_id:householdId,expire_days:Math.max(0,Number($('expireDays').value||0)),locations:settings.locations,units:settings.units};const r=await sb.from('household_settings').upsert(payload);if(r.error)return alert(r.error.message);settings={...settings,...payload};renderAll();alert('Settings saved.')}
 
 function subscribe(){if(channel)sb.removeChannel(channel);channel=sb.channel('food-'+householdId).on('postgres_changes',{event:'*',schema:'public',table:'food_items',filter:'household_id=eq.'+householdId},async()=>{await loadHousehold()}).subscribe()}
-sb.auth.onAuthStateChange((_event,s)=>{session=s;if(s)startApp();else showAuth()});
-sb.auth.getSession().then(({data})=>{session=data.session;if(session)startApp();else showAuth()});
+if(sb){ sb.auth.onAuthStateChange((_event,s)=>{session=s;if(s)startApp();else showAuth()}); sb.auth.getSession().then(({data})=>{session=data.session;if(session)startApp();else showAuth()}).catch(()=>showAuth()); } else { showAuth(); }
 </script>
 </body>
 </html>

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#2f6b4f">
 <title>Kitchen Keeper</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'"></script>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7f4;color:#17231b}
 button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
@@ -98,7 +98,7 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 8px
 <script>
 const SUPABASE_URL='https://gprlzbgcpsmqofpjyase.supabase.co';
 const SUPABASE_KEY='sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const sb=(window.supabase&&window.supabase.createClient)?window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY):null;
 let session=null, householdId=null, items=[], settings={expire_days:7,locations:['Pantry','Refrigerator','Freezer','Cabinet','Counter'],units:['item','package','can','bottle','jar','box','bag','lb','oz','kg','g','gal','qt','pt','liter','mL']};
 let editingId=null,pendingPhoto=null, signup=false, channel=null;
 
@@ -117,6 +117,7 @@ document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.d
 $('loginTab').onclick=()=>{signup=false;$('loginTab').classList.add('active');$('signupTab').classList.remove('active');$('authBtn').textContent='Sign in';msg('')}
 $('signupTab').onclick=()=>{signup=true;$('signupTab').classList.add('active');$('loginTab').classList.remove('active');$('authBtn').textContent='Create account';msg('')}
 $('authBtn').onclick=async()=>{
+ if(!sb){msg('Kitchen Keeper could not load its connection library. Please refresh the page.');return}
  const email=$('authEmail').value.trim(),password=$('authPassword').value;
  if(!email||!password)return msg('Enter your email and password.');
  $('authBtn').disabled=true;msg('Working...');
@@ -132,6 +133,7 @@ $('householdBtn').onclick=()=>{$('householdModal').classList.remove('hidden')}
 $('closeHouse').onclick=()=>{$('householdModal').classList.add('hidden')};
 
 async function startApp(){
+ if(!sb){showAuth();msg('Kitchen Keeper could not connect to Supabase. Please refresh the page.');return}
  showApp();
  const {data,error}=await sb.from('household_members').select('household_id').eq('user_id',session.user.id);
  if(error){alert(error.message);return}

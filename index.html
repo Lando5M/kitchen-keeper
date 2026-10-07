@@ -68,6 +68,33 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
       <div class="row"><h2>Inventory</h2><button id="addFood" class="primary" type="button">＋ Add food</button></div>
       <div id="inventory"></div>
     </div>
+    <div id="foodModal" class="auth hidden" style="position:fixed;inset:0;max-width:none;margin:0;background:#0008;border-radius:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:20px">
+      <div style="background:white;max-width:620px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:24px">
+        <div class="row"><h2 style="margin-top:0">Add food</h2><button id="closeFood" class="secondary" type="button">Close</button></div>
+        <form id="foodForm">
+          <label>Food name *</label>
+          <input id="foodName" required placeholder="e.g. Milk">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Brand</label><input id="foodBrand" placeholder="Optional"></div>
+            <div><label>Category</label><select id="foodCategory"><option>Produce</option><option>Dairy</option><option>Meat</option><option>Frozen</option><option>Pantry</option><option>Bakery</option><option>Beverages</option><option>Snacks</option><option>Other</option></select></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Quantity *</label><input id="foodQty" type="number" min="0" step="0.01" value="1" required></div>
+            <div><label>Unit</label><select id="foodUnit"><option>each</option><option>package</option><option>can</option><option>bottle</option><option>bag</option><option>box</option><option>lb</option><option>oz</option><option>g</option><option>kg</option><option>gallon</option><option>quart</option><option>pint</option></select></div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><label>Low-stock alert at</label><input id="foodLow" type="number" min="0" step="0.01" value="1"></div>
+            <div><label>Expiration date</label><input id="foodExpiration" type="date"></div>
+          </div>
+          <label>Location</label>
+          <select id="foodLocation"><option>Pantry</option><option>Refrigerator</option><option>Freezer</option><option>Counter</option><option>Other</option></select>
+          <label>Notes</label>
+          <textarea id="foodNotes" rows="3" placeholder="Optional notes"></textarea>
+          <div id="foodMsg" class="msg"></div>
+          <button class="primary" type="submit">Save food</button>
+        </form>
+      </div>
+    </div>
   </div>
 </section>
 
@@ -195,9 +222,15 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
     await checkHousehold();
   });
 
+  var currentHouseholdId = null;
+
   async function loadFood(householdId) {
+    currentHouseholdId = householdId;
     var result = await sb.from("food_items").select("*").eq("household_id", householdId).order("expiration", { ascending: true });
-    if (result.error) return;
+    if (result.error) {
+      $("inventory").innerHTML = "<p>" + escapeHtml(result.error.message) + "</p>";
+      return;
+    }
     var items = result.data || [];
     $("total").textContent = items.length;
     $("low").textContent = items.filter(function (x) { return Number(x.quantity) <= Number(x.low_at); }).length;
@@ -205,21 +238,84 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
     var soonDate = new Date();
     soonDate.setDate(today.getDate() + 7);
     $("expired").textContent = items.filter(function (x) { return x.expiration && new Date(x.expiration) < today; }).length;
-    $("soon").textContent = items.filter(function (x) { var d = x.expiration ? new Date(x.expiration) : null; return d && d >= today && d <= soonDate; }).length;
+    $("soon").textContent = items.filter(function (x) {
+      var d = x.expiration ? new Date(x.expiration) : null;
+      return d && d >= today && d <= soonDate;
+    }).length;
+
+    if (!items.length) {
+      $("inventory").innerHTML = "<p>Your inventory is empty. Click <b>＋ Add food</b> to add your first item.</p>";
+      return;
+    }
+
     $("inventory").innerHTML = items.map(function (x) {
-      return '<div class="food"><b>' + escapeHtml(x.name) + '</b> — ' + escapeHtml(x.quantity) + ' ' + escapeHtml(x.unit || "") + '<br><small>' + escapeHtml(x.location || "") + ' · expires ' + escapeHtml(x.expiration || "none") + '</small></div>';
+      var warning = Number(x.quantity) <= Number(x.low_at) ? " ⚠️ Low stock" : "";
+      return '<div class="food"><div class="row"><div><b>' + escapeHtml(x.name) + '</b>' + warning +
+        '<br><small>' + escapeHtml(x.brand || "") + (x.brand ? " · " : "") +
+        escapeHtml(x.quantity) + " " + escapeHtml(x.unit || "") + " · " +
+        escapeHtml(x.location || "") + " · " + escapeHtml(x.category || "") +
+        (x.expiration ? " · expires " + escapeHtml(x.expiration) : "") +
+        '</small></div></div>' +
+        (x.notes ? '<small>' + escapeHtml(x.notes) + '</small>' : '') +
+        '</div>';
     }).join("");
   }
+
+  $("addFood").addEventListener("click", function () {
+    $("foodMsg").textContent = "";
+    $("foodModal").classList.remove("hidden");
+    $("foodName").focus();
+  });
+
+  $("closeFood").addEventListener("click", function () {
+    $("foodModal").classList.add("hidden");
+  });
+
+  $("foodForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    if (!sb || !currentHouseholdId) {
+      $("foodMsg").textContent = "Your household is not ready yet. Please refresh and try again.";
+      return;
+    }
+
+    var saveButton = event.submitter;
+    saveButton.disabled = true;
+    $("foodMsg").textContent = "Saving...";
+
+    var row = {
+      household_id: currentHouseholdId,
+      name: $("foodName").value.trim(),
+      brand: $("foodBrand").value.trim() || null,
+      quantity: Number($("foodQty").value),
+      unit: $("foodUnit").value,
+      low_at: Number($("foodLow").value),
+      expiration: $("foodExpiration").value || null,
+      location: $("foodLocation").value,
+      category: $("foodCategory").value,
+      notes: $("foodNotes").value.trim() || null
+    };
+
+    var result = await sb.from("food_items").insert(row);
+    saveButton.disabled = false;
+
+    if (result.error) {
+      $("foodMsg").textContent = result.error.message;
+      return;
+    }
+
+    $("foodForm").reset();
+    $("foodQty").value = "1";
+    $("foodLow").value = "1";
+    $("foodMsg").textContent = "";
+    $("foodModal").classList.add("hidden");
+    await loadFood(currentHouseholdId);
+  });
 
   function escapeHtml(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
       return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
     });
   }
-
-  $("addFood").addEventListener("click", function () {
-    alert("Food entry form will be added after authentication is confirmed working.");
-  });
 
   start().catch(function (error) {
     showMessage(error.message || "Unable to start authentication.");

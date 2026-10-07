@@ -3,208 +3,228 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#2f6b4f">
 <title>Kitchen Keeper</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" onerror="this.onerror=null;this.src='https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.min.js'"></script>
+<link rel="manifest" href="manifest.webmanifest">
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#f4f7f4;color:#17231b}
-button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
-.wrap{max-width:1100px;margin:auto;padding:24px}.card{background:#fff;border:1px solid #dce5de;border-radius:16px;padding:20px;box-shadow:0 5px 20px #17231b0d}
-.auth{max-width:460px;margin:8vh auto}.brand{font-size:30px;font-weight:800;margin-bottom:6px}.muted{color:#66736a}.tabs{display:flex;gap:8px;margin:18px 0}.tabs button{flex:1;padding:11px;border:1px solid #ccd8cf;border-radius:10px;background:#fff}.tabs .active{background:#2f6b4f;color:white}
-label{display:block;font-weight:650;font-size:13px;margin:12px 0 6px}input,select,textarea{width:100%;padding:11px;border:1px solid #cdd8d0;border-radius:10px;background:white}textarea{min-height:90px}
-.btn{border:0;border-radius:10px;padding:11px 15px;background:#e7eee9}.primary{background:#2f6b4f;color:#fff}.danger{background:#b84b45;color:#fff}.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
-.header{display:flex;justify-content:space-between;gap:15px;align-items:center;margin-bottom:20px}.header h1{margin:0}
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}.stat strong{font-size:28px;display:block}.stat small{color:#66736a}
-.nav{display:flex;gap:8px;margin-bottom:20px}.nav button{border:0;background:#e7eee9;padding:10px 14px;border-radius:10px}.nav .active{background:#2f6b4f;color:#fff}
-table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 8px;border-bottom:1px solid #e5ebe6;font-size:14px}.badge{display:inline-block;padding:5px 8px;border-radius:999px;font-size:12px;background:#e8eee9}.expired{background:#f8d9d6}.soon{background:#fff0c7}.low{background:#dceafd}
-.modal{position:fixed;inset:0;background:#17231b88;display:flex;align-items:center;justify-content:center;padding:18px}.modal>div{max-width:650px;width:100%;max-height:92vh;overflow:auto}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.full{grid-column:1/-1}.photo{max-width:110px;max-height:110px;border-radius:10px;display:block;margin-top:8px}
-@media(max-width:700px){.stats{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.full{grid-column:auto}.header{align-items:flex-start}.nav{overflow:auto}.wrap{padding:14px}table{min-width:720px}.tablewrap{overflow:auto}}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7f5;color:#17221b}
+button,input,select,textarea{font:inherit}button{cursor:pointer}
+header{padding:24px;background:#183b29;color:white}h1{margin:0 0 6px}.wrap{max-width:1050px;margin:auto;padding:24px}
+.auth{max-width:430px;margin:50px auto;background:white;padding:28px;border-radius:16px;box-shadow:0 8px 30px #0001}
+.tabs{display:flex;gap:8px;margin-bottom:20px}.tabs button{flex:1;padding:12px;border:0;border-radius:9px;background:#e8eee9}.tabs button.active{background:#2f7d4b;color:white}
+input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-radius:8px;margin:6px 0 14px;background:white}
+.primary{background:#2f7d4b;color:white;border:0;padding:12px 18px;border-radius:9px}.secondary{background:#e8eee9;border:0;padding:12px 18px;border-radius:9px}
+.msg{min-height:22px;margin:8px 0;color:#b42318}.hidden{display:none!important}
+.appnav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.appnav button{border:0;padding:10px 14px;border-radius:8px;background:#e8eee9}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:white;padding:18px;border-radius:12px}.card b{font-size:28px}
+.panel{background:white;padding:20px;border-radius:14px;margin-top:18px}
+.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.food{padding:14px 0;border-bottom:1px solid #e4e9e5}
+@media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{padding:15px}}
 </style>
 </head>
 <body>
-<div id="authView" class="wrap auth">
-  <div class="card">
-    <div class="brand">🥕 Kitchen Keeper</div>
-    <p class="muted">Shared household food inventory</p>
-    <div class="tabs"><button id="loginTab" class="active">Sign in</button><button id="signupTab">Create account</button></div>
-    <label>Email</label><input id="authEmail" type="email" autocomplete="email">
-    <label>Password</label><input id="authPassword" type="password" autocomplete="current-password">
-    <button id="authBtn" class="btn primary" style="width:100%;margin-top:16px">Sign in</button>
-    <p id="authMsg" class="muted"></p>
-  </div>
-</div>
+<header><div class="wrap"><h1>🥕 Kitchen Keeper</h1><div>Shared household food inventory</div></div></header>
 
-<div id="appView" class="wrap hidden">
-  <div class="header">
-    <div><h1>🥕 Kitchen Keeper</h1><div id="userLabel" class="muted"></div></div>
-    <div class="row"><button id="householdBtn" class="btn">Household</button><button id="signoutBtn" class="btn">Sign out</button></div>
+<section id="auth" class="auth">
+  <div class="tabs">
+    <button id="signInTab" class="active" type="button">Sign in</button>
+    <button id="signUpTab" type="button">Create account</button>
   </div>
-  <div id="householdNotice" class="card hidden"></div>
-  <div id="mainApp" class="hidden">
-    <div class="nav">
-      <button class="active" data-page="dashboard">Dashboard</button>
-      <button data-page="inventory">Inventory</button>
-      <button data-page="alerts">Alerts</button>
-      <button data-page="settings">Settings</button>
+  <form id="authForm">
+    <label>Email</label>
+    <input id="email" type="email" required autocomplete="email">
+    <label>Password</label>
+    <input id="password" type="password" required minlength="6" autocomplete="current-password">
+    <button id="authButton" class="primary" type="submit">Sign in</button>
+  </form>
+  <div id="authMsg" class="msg"></div>
+</section>
+
+<section id="app" class="wrap hidden">
+  <div class="row">
+    <h2>Kitchen Keeper</h2>
+    <button id="signOut" class="secondary" type="button">Sign out</button>
+  </div>
+  <div class="appnav">
+    <button type="button">Dashboard</button><button type="button">Inventory</button><button type="button">Alerts</button><button type="button">Settings</button>
+  </div>
+  <div id="householdSetup" class="panel">
+    <h2>Set up your household</h2>
+    <p>Create a household or join one with an invite code.</p>
+    <label>Household name</label><input id="houseName" value="My Kitchen">
+    <button id="createHouse" class="primary" type="button">Create household</button>
+    <hr>
+    <label>Invite code</label><input id="inviteCode" maxlength="8" placeholder="8-character code">
+    <button id="joinHouse" class="secondary" type="button">Join household</button>
+    <div id="houseMsg" class="msg"></div>
+  </div>
+  <div id="dashboard" class="hidden">
+    <div class="cards">
+      <div class="card">Total items<br><b id="total">0</b></div>
+      <div class="card">Low stock<br><b id="low">0</b></div>
+      <div class="card">Expiring soon<br><b id="soon">0</b></div>
+      <div class="card">Expired<br><b id="expired">0</b></div>
     </div>
-    <section id="dashboard" class="page">
-      <div class="stats">
-        <div class="card"><small>Total items</small><strong id="total">0</strong></div>
-        <div class="card"><small>Low stock</small><strong id="lowCount">0</strong></div>
-        <div class="card"><small>Expiring soon</small><strong id="soonCount">0</strong></div>
-        <div class="card"><small>Expired</small><strong id="expiredCount">0</strong></div>
-      </div>
-      <div class="card"><h2>Needs attention</h2><div id="dashboardAlerts"></div></div>
-    </section>
-    <section id="inventory" class="page hidden">
-      <div class="card">
-        <div class="header"><div><h2>Inventory</h2><div class="muted">Shared with your household</div></div><button id="addBtn" class="btn primary">＋ Add food</button></div>
-        <div class="row"><input id="search" placeholder="Search food, brand, category..."><select id="filter"><option value="">All items</option><option value="low">Low stock</option><option value="soon">Expiring soon</option><option value="expired">Expired</option></select></div>
-        <div class="tablewrap"><table><thead><tr><th>Food</th><th>Qty</th><th>Expiration</th><th>Location</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
-      </div>
-    </section>
-    <section id="alerts" class="page hidden"><div class="card"><h2>Alerts</h2><div id="alertsList"></div></div></section>
-    <section id="settings" class="page hidden"><div class="card"><h2>Settings</h2><label>Expiration warning days</label><input id="expireDays" type="number" min="0" value="7"><button id="saveSettings" class="btn primary" style="margin-top:12px">Save settings</button></div></section>
+    <div class="panel">
+      <div class="row"><h2>Inventory</h2><button id="addFood" class="primary" type="button">＋ Add food</button></div>
+      <div id="inventory"></div>
+    </div>
   </div>
-</div>
+</section>
 
-<div id="modal" class="modal hidden"><div class="card">
-  <div class="header"><h2 id="modalTitle">Add food</h2><button id="closeModal" class="btn">✕</button></div>
-  <div class="grid">
-    <div class="full"><label>Name</label><input id="fName"></div>
-    <div><label>Brand</label><input id="fBrand"></div>
-    <div><label>Category</label><input id="fCategory" placeholder="Canned goods, snacks..."></div>
-    <div><label>Quantity</label><input id="fQty" type="number" step="0.01" min="0" value="1"></div>
-    <div><label>Unit</label><select id="fUnit"></select></div>
-    <div><label>Low-stock threshold</label><input id="fLow" type="number" step="0.01" min="0" value="1"></div>
-    <div><label>Expiration</label><input id="fExp" type="date"></div>
-    <div><label>Location</label><select id="fLocation"></select></div>
-    <div class="full"><label>Notes</label><textarea id="fNotes"></textarea></div>
-    <div class="full"><label>Picture</label><input id="fPhoto" type="file" accept="image/*"><img id="photoPreview" class="photo hidden"></div>
-  </div>
-  <div class="row" style="margin-top:18px"><button id="deleteBtn" class="btn danger hidden">Delete</button><button id="cancelBtn" class="btn">Cancel</button><button id="saveBtn" class="btn primary">Save</button></div>
-</div></div>
-
-<div id="householdModal" class="modal hidden"><div class="card">
-  <h2>Household</h2><p class="muted">Create a household or join one with an invite code.</p>
-  <label>Household name</label><input id="houseName" placeholder="My Kitchen">
-  <button id="createHouse" class="btn primary" style="margin-top:10px">Create household</button>
-  <hr style="border:0;border-top:1px solid #e5ebe6;margin:20px 0">
-  <label>Invite code</label><input id="inviteCode" placeholder="8-character code">
-  <button id="joinHouse" class="btn" style="margin-top:10px">Join household</button>
-  <button id="closeHouse" class="btn" style="margin-top:10px;width:100%">Close</button>
-</div></div>
-
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-const SUPABASE_URL='https://gprlzbgcpsmqofpjyase.supabase.co';
-const SUPABASE_KEY='sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x';
-let sb=null; try{ if(window.supabase&&window.supabase.createClient) sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY); }catch(e){ console.warn('Supabase client init failed',e); }
-let session=null, householdId=null, items=[], settings={expire_days:7,locations:['Pantry','Refrigerator','Freezer','Cabinet','Counter'],units:['item','package','can','bottle','jar','box','bag','lb','oz','kg','g','gal','qt','pt','liter','mL']};
-let editingId=null,pendingPhoto=null, signup=false, channel=null;
+(function () {
+  "use strict";
 
-const $=id=>document.getElementById(id);
-function msg(t){$('authMsg').textContent=t}
-function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function daysUntil(d){if(!d)return null;let a=new Date();a.setHours(0,0,0,0);let b=new Date(d+'T00:00:00');return Math.ceil((b-a)/86400000)}
-function status(x){let d=daysUntil(x.expiration);if(d!==null&&d<0)return'expired';if(d!==null&&d<=Number(settings.expire_days||7))return'soon';if(Number(x.quantity)<=Number(x.low_at))return'low';return'ok'}
-function statusLabel(s){return s==='expired'?'Expired':s==='soon'?'Expiring soon':s==='low'?'Low stock':'OK'}
-function dateLabel(d){return d?new Date(d+'T00:00:00').toLocaleDateString(undefined,{year:'numeric',month:'short',day:'numeric'}):'—'}
-function showAuth(){ $('authView').classList.remove('hidden'); $('appView').classList.add('hidden') }
-function showApp(){ $('authView').classList.add('hidden'); $('appView').classList.remove('hidden'); $('userLabel').textContent=session?.user?.email||'' }
-function switchPage(p){document.querySelectorAll('.page').forEach(x=>x.classList.toggle('hidden',x.id!==p));document.querySelectorAll('.nav button').forEach(x=>x.classList.toggle('active',x.dataset.page===p));if(p==='inventory')renderInventory();if(p==='alerts')renderAlerts()}
-document.querySelectorAll('.nav button').forEach(b=>b.onclick=()=>switchPage(b.dataset.page));
+  var SUPABASE_URL = "https://gprlzbgcpsmqofpjyase.supabase.co";
+  var SUPABASE_KEY = "sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x";
+  var sb = null;
+  var mode = "signin";
 
-$('loginTab').addEventListener('click',function(){signup=false;$('loginTab').classList.add('active');$('signupTab').classList.remove('active');$('authBtn').textContent='Sign in';$('authPassword').autocomplete='current-password';msg('')});
-$('signupTab').addEventListener('click',function(){signup=true;$('signupTab').classList.add('active');$('loginTab').classList.remove('active');$('authBtn').textContent='Create account';$('authPassword').autocomplete='new-password';msg('')});
-async function restAuth(path,email,password){
- const res=await fetch(SUPABASE_URL+'/auth/v1/'+path,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPABASE_KEY},body:JSON.stringify({email,password})});
- const data=await res.json().catch(()=>({}));
- if(!res.ok) throw new Error(data.error_description||data.msg||data.message||'Authentication failed.');
- return data;
-}
-$('authBtn').addEventListener('click',async function(){
- const email=$('authEmail').value.trim(),password=$('authPassword').value;
- if(!email||!password){msg('Enter your email and password.');return}
- if(password.length<6){msg('Password must be at least 6 characters.');return}
- $('authBtn').disabled=true;msg('Working...');
- try{
-  let data;
-  if(signup){
-   data=await restAuth('signup',email,password);
-   if(data.access_token){
-    if(sb){await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});} else {msg('Account created. Please refresh and sign in.');return}
-   } else {msg('Account created. Check your email if confirmation is required.');return}
-  } else {
-   data=await restAuth('token?grant_type=password',email,password);
-   if(sb) await sb.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token}); else {msg('Signed in, but the app connection library did not load. Please refresh.');return}
+  var $ = function (id) { return document.getElementById(id); };
+
+  function setMode(next) {
+    mode = next;
+    $("signInTab").classList.toggle("active", mode === "signin");
+    $("signUpTab").classList.toggle("active", mode === "signup");
+    $("authButton").textContent = mode === "signin" ? "Sign in" : "Create account";
+    $("authMsg").textContent = "";
   }
-  const r=await sb.auth.getSession();session=r.data.session;await startApp();
- }catch(e){msg(e.message||'Authentication failed.')}finally{$('authBtn').disabled=false}
-});
-$('signoutBtn').onclick=async()=>{await sb.auth.signOut();session=null;householdId=null;items=[];if(channel){await sb.removeChannel(channel);channel=null}showAuth()};
-$('householdBtn').onclick=()=>{$('householdModal').classList.remove('hidden')}
-$('closeHouse').onclick=()=>{$('householdModal').classList.add('hidden')};
 
-async function startApp(){
- if(!sb){showAuth();msg('Kitchen Keeper could not connect to Supabase. Please refresh the page.');return}
- showApp();
- const {data,error}=await sb.from('household_members').select('household_id').eq('user_id',session.user.id);
- if(error){alert(error.message);return}
- if(!data?.length){$('mainApp').classList.add('hidden');$('householdNotice').classList.remove('hidden');$('householdNotice').innerHTML='<h2>Welcome!</h2><p>Create a household or join one with an invite code to start sharing your kitchen inventory.</p><button class="btn primary" onclick="document.getElementById(\\'householdModal\\').classList.remove(\\'hidden\\')">Set up household</button>';return}
- householdId=data[0].household_id;$('householdNotice').classList.add('hidden');$('mainApp').classList.remove('hidden');
- await loadHousehold();subscribe();
-}
-async function loadHousehold(){
- const [ir,sr]=await Promise.all([
-  sb.from('food_items').select('*').eq('household_id',householdId).order('name'),
-  sb.from('household_settings').select('*').eq('household_id',householdId).maybeSingle()
- ]);
- if(ir.error)throw ir.error;items=ir.data||[];
- if(sr.data)settings=sr.data;
- populateSelectors();renderAll();
-}
-function populateSelectors(){
- $('fUnit').innerHTML=(settings.units||[]).map(x=>`<option>${esc(x)}</option>`).join('');
- $('fLocation').innerHTML=(settings.locations||[]).map(x=>`<option>${esc(x)}</option>`).join('');
- $('expireDays').value=settings.expire_days??7;
-}
-function renderAll(){renderDashboard();renderInventory();renderAlerts()}
-function renderDashboard(){
- const counts={expired:0,soon:0,low:0};items.forEach(x=>{let s=status(x);if(counts[s]!=null)counts[s]++});
- $('total').textContent=items.length;$('lowCount').textContent=counts.low;$('soonCount').textContent=counts.soon;$('expiredCount').textContent=counts.expired;
- const attention=items.filter(x=>status(x)!=='ok').slice(0,10);
- $('dashboardAlerts').innerHTML=attention.length?attention.map(x=>`<div style="padding:10px 0;border-bottom:1px solid #e5ebe6"><b>${esc(x.name)}</b> — ${statusLabel(status(x))} · ${esc(x.quantity)} ${esc(x.unit)}</div>`).join(''):'<p class="muted">Everything looks good.</p>';
-}
-function renderInventory(){
- const q=$('search').value.toLowerCase().trim(),f=$('filter').value;
- const list=items.filter(x=>(!q||(x.name+' '+x.brand+' '+x.category+' '+x.notes).toLowerCase().includes(q))&&(!f||status(x)===f));
- $('rows').innerHTML=list.length?list.map(x=>`<tr><td><b>${esc(x.name)}</b><div class="muted">${esc(x.brand||'')} ${x.category?'· '+esc(x.category):''}</div></td><td>${esc(x.quantity)} ${esc(x.unit)}</td><td>${dateLabel(x.expiration)}</td><td>${esc(x.location||'—')}</td><td><span class="badge ${status(x)}">${statusLabel(status(x))}</span></td><td><button class="btn" onclick="editItem('${x.id}')">Edit</button></td></tr>`).join(''):'<tr><td colspan="6" class="muted">No food items found.</td></tr>';
-}
-function renderAlerts(){
- const list=items.filter(x=>status(x)!=='ok');
- $('alertsList').innerHTML=list.length?list.map(x=>`<div style="padding:12px 0;border-bottom:1px solid #e5ebe6"><b>${esc(x.name)}</b><br><span class="badge ${status(x)}">${statusLabel(status(x))}</span> · ${esc(x.quantity)} ${esc(x.unit)} · expires ${dateLabel(x.expiration)}</div>`).join(''):'<p class="muted">No alerts right now.</p>';
-}
-$('search').oninput=renderInventory;$('filter').onchange=renderInventory;
+  $("signInTab").addEventListener("click", function () { setMode("signin"); });
+  $("signUpTab").addEventListener("click", function () { setMode("signup"); });
 
-function openItem(x=null){editingId=x?.id||null;pendingPhoto=null;$('modalTitle').textContent=x?'Edit food':'Add food';$('fName').value=x?.name||'';$('fBrand').value=x?.brand||'';$('fCategory').value=x?.category||'';$('fQty').value=x?.quantity??1;$('fLow').value=x?.low_at??1;$('fExp').value=x?.expiration||'';$('fLocation').value=x?.location||settings.locations?.[0]||'Pantry';$('fUnit').value=x?.unit||settings.units?.[0]||'item';$('fNotes').value=x?.notes||'';$('fPhoto').value='';$('photoPreview').classList.toggle('hidden',!x?.photo_data);$('photoPreview').src=x?.photo_data||'';$('deleteBtn').classList.toggle('hidden',!x);$('modal').classList.remove('hidden')}
-function closeItem(){$('modal').classList.add('hidden')}
-$('addBtn').onclick=()=>openItem();$('closeModal').onclick=closeItem;$('cancelBtn').onclick=closeItem;
-$('fPhoto').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{pendingPhoto=r.result;$('photoPreview').src=r.result;$('photoPreview').classList.remove('hidden')};r.readAsDataURL(f)}
-window.editItem=id=>{const x=items.find(a=>a.id===id);if(x)openItem(x)}
-$('saveBtn').onclick=async()=>{
- const name=$('fName').value.trim();if(!name)return alert('Enter a food name.');
- const payload={household_id:householdId,name,brand:$('fBrand').value.trim(),category:$('fCategory').value.trim(),quantity:Number($('fQty').value||0),low_at:Number($('fLow').value||0),expiration:$('fExp').value||null,location:$('fLocation').value,unit:$('fUnit').value,notes:$('fNotes').value.trim(),photo_data:pendingPhoto!==null?pendingPhoto:(editingId?(items.find(x=>x.id===editingId)?.photo_data||''):'')};
- let r=editingId?await sb.from('food_items').update(payload).eq('id',editingId):await sb.from('food_items').insert(payload);
- if(r.error)return alert(r.error.message);closeItem();await loadHousehold();
-}
-$('deleteBtn').onclick=async()=>{if(!editingId||!confirm('Delete this food item?'))return;const r=await sb.from('food_items').delete().eq('id',editingId);if(r.error)return alert(r.error.message);closeItem();await loadHousehold()};
+  function showMessage(text) {
+    $("authMsg").textContent = text;
+  }
 
-$('createHouse').onclick=async()=>{const n=$('houseName').value.trim();if(!n)return alert('Enter a household name.');const r=await sb.rpc('create_household',{hname:n});if(r.error)return alert(r.error.message);$('householdModal').classList.add('hidden');await startApp()}
-$('joinHouse').onclick=async()=>{const c=$('inviteCode').value.trim();if(!c)return alert('Enter an invite code.');const r=await sb.rpc('join_household',{code:c});if(r.error)return alert(r.error.message);$('householdModal').classList.add('hidden');await startApp()}
-$('saveSettings').onclick=async()=>{const payload={household_id:householdId,expire_days:Math.max(0,Number($('expireDays').value||0)),locations:settings.locations,units:settings.units};const r=await sb.from('household_settings').upsert(payload);if(r.error)return alert(r.error.message);settings={...settings,...payload};renderAll();alert('Settings saved.')}
+  async function start() {
+    if (!window.supabase) {
+      showMessage("The authentication library did not load. Please refresh the page.");
+      return;
+    }
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    var result = await sb.auth.getSession();
+    if (result.data && result.data.session) {
+      showApp();
+    }
+  }
 
-function subscribe(){if(channel)sb.removeChannel(channel);channel=sb.channel('food-'+householdId).on('postgres_changes',{event:'*',schema:'public',table:'food_items',filter:'household_id=eq.'+householdId},async()=>{await loadHousehold()}).subscribe()}
-if(sb){ sb.auth.onAuthStateChange((_event,s)=>{session=s;if(s)startApp();else showAuth()}); sb.auth.getSession().then(({data})=>{session=data.session;if(session)startApp();else showAuth()}).catch(()=>showAuth()); } else { showAuth(); }
+  $("authForm").addEventListener("submit", async function (event) {
+    event.preventDefault();
+    if (!sb) {
+      showMessage("Connecting to authentication. Please wait a moment and try again.");
+      await start();
+      if (!sb) return;
+    }
+
+    var email = $("email").value.trim();
+    var password = $("password").value;
+    $("authButton").disabled = true;
+    showMessage("Please wait...");
+
+    var result;
+    if (mode === "signup") {
+      result = await sb.auth.signUp({ email: email, password: password });
+    } else {
+      result = await sb.auth.signInWithPassword({ email: email, password: password });
+    }
+
+    $("authButton").disabled = false;
+
+    if (result.error) {
+      showMessage(result.error.message);
+      return;
+    }
+
+    if (mode === "signup" && !result.data.session) {
+      showMessage("Account created. Check your email to confirm your account.");
+      return;
+    }
+
+    showMessage("");
+    showApp();
+  });
+
+  $("signOut").addEventListener("click", async function () {
+    if (sb) await sb.auth.signOut();
+    $("app").classList.add("hidden");
+    $("auth").classList.remove("hidden");
+  });
+
+  async function showApp() {
+    $("auth").classList.add("hidden");
+    $("app").classList.remove("hidden");
+    await checkHousehold();
+  }
+
+  async function checkHousehold() {
+    if (!sb) return;
+    var result = await sb.from("household_members").select("household_id").limit(1);
+    if (result.error || !result.data || result.data.length === 0) {
+      $("householdSetup").classList.remove("hidden");
+      $("dashboard").classList.add("hidden");
+      return;
+    }
+    $("householdSetup").classList.add("hidden");
+    $("dashboard").classList.remove("hidden");
+    loadFood(result.data[0].household_id);
+  }
+
+  $("createHouse").addEventListener("click", async function () {
+    if (!sb) return;
+    var name = $("houseName").value.trim() || "My Kitchen";
+    var result = await sb.rpc("create_household", { hname: name });
+    if (result.error) {
+      $("houseMsg").textContent = result.error.message;
+      return;
+    }
+    $("houseMsg").textContent = "Household created.";
+    await checkHousehold();
+  });
+
+  $("joinHouse").addEventListener("click", async function () {
+    if (!sb) return;
+    var code = $("inviteCode").value.trim();
+    var result = await sb.rpc("join_household", { invite: code });
+    if (result.error) {
+      $("houseMsg").textContent = result.error.message;
+      return;
+    }
+    $("houseMsg").textContent = "Joined household.";
+    await checkHousehold();
+  });
+
+  async function loadFood(householdId) {
+    var result = await sb.from("food_items").select("*").eq("household_id", householdId).order("expiration", { ascending: true });
+    if (result.error) return;
+    var items = result.data || [];
+    $("total").textContent = items.length;
+    $("low").textContent = items.filter(function (x) { return Number(x.quantity) <= Number(x.low_at); }).length;
+    var today = new Date();
+    var soonDate = new Date();
+    soonDate.setDate(today.getDate() + 7);
+    $("expired").textContent = items.filter(function (x) { return x.expiration && new Date(x.expiration) < today; }).length;
+    $("soon").textContent = items.filter(function (x) { var d = x.expiration ? new Date(x.expiration) : null; return d && d >= today && d <= soonDate; }).length;
+    $("inventory").innerHTML = items.map(function (x) {
+      return '<div class="food"><b>' + escapeHtml(x.name) + '</b> — ' + escapeHtml(x.quantity) + ' ' + escapeHtml(x.unit || "") + '<br><small>' + escapeHtml(x.location || "") + ' · expires ' + escapeHtml(x.expiration || "none") + '</small></div>';
+    }).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
+      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
+    });
+  }
+
+  $("addFood").addEventListener("click", function () {
+    alert("Food entry form will be added after authentication is confirmed working.");
+  });
+
+  start().catch(function (error) {
+    showMessage(error.message || "Unable to start authentication.");
+  });
+}());
 </script>
 </body>
 </html>

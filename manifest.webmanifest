@@ -1,1 +1,9 @@
-{"name":"Kitchen Keeper","short_name":"Kitchen Keeper","start_url":"./","display":"standalone","background_color":"#f4f7f4","theme_color":"#2f6b4f","icons":[]}
+{
+  "name": "Kitchen Keeper",
+  "short_name": "Kitchen Keeper",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#f4f7f5",
+  "theme_color": "#183b29",
+  "icons": []
+}

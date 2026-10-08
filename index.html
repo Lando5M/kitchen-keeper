@@ -116,9 +116,10 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 </div><div class="actions" style="margin-top:15px"><button type="button" class="secondary" id="cancelFood">Cancel</button><button class="primary">Save Food</button></div></form>
 </div></div>
 
-<div id="barcodeModal" class="modal hidden"><div class="modal-box"><div class="modal-head"><h2>Scan Barcode</h2><button id="closeBarcode">×</button></div><div class="muted" style="margin-bottom:10px">Point your phone camera at the product barcode. Hold it steady and keep the barcode well lit.</div><video id="barcodeVideo" playsinline autoplay muted style="width:100%;max-height:55vh;object-fit:cover;border-radius:12px;background:#111"></video><div id="barcodeMessage" class="muted" style="margin-top:10px">Starting camera…</div><div class="actions" style="margin-top:12px"><button type="button" class="secondary" id="cancelBarcode">Cancel</button></div></div></div>
+<div id="barcodeModal" class="modal hidden"><div class="modal-box"><div class="modal-head"><h2>Scan Barcode</h2><button id="closeBarcode">×</button></div><div class="muted" style="margin-bottom:10px">Point your phone camera at the product barcode. Hold it steady and keep the barcode well lit. The scanner works on phones even when the browser does not have built-in barcode detection.</div><video id="barcodeVideo" playsinline autoplay muted style="width:100%;max-height:55vh;object-fit:cover;border-radius:12px;background:#111"></video><div id="barcodeMessage" class="muted" style="margin-top:10px">Starting camera…</div><div class="actions" style="margin-top:12px"><button type="button" class="secondary" id="cancelBarcode">Cancel</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js"></script>
 <script>
 const SUPABASE_URL="https://gprlzbgcpsmqofpjyase.supabase.co";
 const SUPABASE_KEY="sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x";
@@ -166,21 +167,41 @@ $("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$(
 
 let barcodeStream=null, barcodeTimer=null;
 function stopBarcodeScanner(){if(barcodeTimer){clearInterval(barcodeTimer);barcodeTimer=null}if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null}const v=$("barcodeVideo");if(v)v.srcObject=null;$("barcodeModal").classList.add("hidden")}
+let zxingReader=null,zxingControls=null;
+function stopBarcodeScanner(){
+ if(barcodeTimer){clearInterval(barcodeTimer);barcodeTimer=null}
+ if(zxingControls){try{zxingControls.stop()}catch(e){}zxingControls=null}
+ if(zxingReader){try{zxingReader.reset()}catch(e){}zxingReader=null}
+ if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null}
+ const v=$("barcodeVideo");if(v){try{v.pause()}catch(e){}v.srcObject=null}
+ $("barcodeModal").classList.add("hidden")
+}
 async function startBarcodeScanner(){
  if(!window.isSecureContext){alert("Barcode scanning requires the secure Kitchen Keeper website (HTTPS).");return}
- if(!("BarcodeDetector" in window)){alert("Barcode scanning is not supported by this browser. Please use Chrome on Android for scanning.");return}
  stopBarcodeScanner();
  $("barcodeModal").classList.remove("hidden");$("barcodeMessage").textContent="Starting camera…";
  try{
-  const formats=await BarcodeDetector.getSupportedFormats();
-  const wanted=["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","codabar"].filter(x=>formats.includes(x));
-  const detector=new BarcodeDetector(wanted.length?{formats:wanted}:undefined);
-  barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
-  const video=$("barcodeVideo");video.srcObject=barcodeStream;await video.play();$("barcodeMessage").textContent="Scanning…";
-  barcodeTimer=setInterval(async()=>{
-   if(!barcodeStream||video.readyState<2)return;
-   try{const codes=await detector.detect(video);if(!codes.length)return;const code=(codes[0].rawValue||"").trim();if(!code)return;stopBarcodeScanner();await lookupBarcode(code)}catch(err){console.warn("Barcode scan error",err)}
-  },250);
+  if("BarcodeDetector" in window){
+   const formats=await BarcodeDetector.getSupportedFormats();
+   const wanted=["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","codabar"].filter(x=>formats.includes(x));
+   const detector=new BarcodeDetector(wanted.length?{formats:wanted}:undefined);
+   barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+   const video=$("barcodeVideo");video.srcObject=barcodeStream;await video.play();$("barcodeMessage").textContent="Scanning…";
+   barcodeTimer=setInterval(async()=>{
+    if(!barcodeStream||video.readyState<2)return;
+    try{const codes=await detector.detect(video);if(!codes.length)return;const code=(codes[0].rawValue||"").trim();if(!code)return;stopBarcodeScanner();await lookupBarcode(code)}catch(err){console.warn("Barcode scan error",err)}
+   },250);
+   return;
+  }
+  if(window.ZXingBrowser){
+   zxingReader=new ZXingBrowser.BrowserMultiFormatReader();
+   $("barcodeMessage").textContent="Scanning with phone camera…";
+   zxingControls=await zxingReader.decodeFromVideoDevice(undefined,$("barcodeVideo"),(result,error)=>{
+    if(result){const code=(result.getText?result.getText():result.text||"").trim();if(code){stopBarcodeScanner();lookupBarcode(code)}}
+   });
+   return;
+  }
+  throw new Error("The barcode scanner could not load.");
  }catch(err){stopBarcodeScanner();alert("Could not start the barcode scanner. Make sure Chrome has camera permission and try again.\n\n"+err.message)}
 }
 async function lookupBarcode(code){

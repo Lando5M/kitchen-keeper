@@ -45,7 +45,10 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
     <button id="signOut" class="secondary" type="button">Sign out</button>
   </div>
   <div class="appnav">
-    <button type="button">Dashboard</button><button type="button">Inventory</button><button type="button">Alerts</button><button type="button">Settings</button>
+    <button id="navDashboard" type="button">Dashboard</button>
+    <button id="navInventory" type="button">Inventory</button>
+    <button id="navAlerts" type="button">Alerts</button>
+    <button id="navSettings" type="button">Settings</button>
   </div>
   <div id="householdSetup" class="panel">
     <h2>Set up your household</h2>
@@ -68,6 +71,27 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
       <div class="row"><h2>Inventory</h2><button id="addFood" class="primary" type="button">＋ Add food</button></div>
       <div id="inventory"></div>
     </div>
+  </div>
+
+  <div id="inventoryView" class="hidden">
+    <div class="panel">
+      <div class="row"><h2>Inventory</h2><button id="addFood2" class="primary" type="button">＋ Add food</button></div>
+      <div id="inventoryList"></div>
+    </div>
+  </div>
+
+  <div id="alertsView" class="hidden">
+    <div class="panel"><h2>Alerts</h2><div id="alertsList"></div></div>
+  </div>
+
+  <div id="settingsView" class="hidden">
+    <div class="panel">
+      <h2>Settings</h2>
+      <p><b>Household</b></p>
+      <p id="householdInfo">Your shared household is connected.</p>
+      <button id="refreshApp" class="secondary" type="button">Refresh inventory</button>
+    </div>
+  </div>
     <div id="foodModal" class="auth hidden" style="position:fixed;inset:0;max-width:none;margin:0;background:#0008;border-radius:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:20px">
       <div style="background:white;max-width:620px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:24px">
         <div class="row"><h2 style="margin-top:0">Add food</h2><button id="closeFood" class="secondary" type="button">Close</button></div>
@@ -195,7 +219,9 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
     }
     $("householdSetup").classList.add("hidden");
     $("dashboard").classList.remove("hidden");
-    loadFood(result.data[0].household_id);
+    showView("dashboard");
+    $("householdInfo").textContent = "Household ID: " + result.data[0].household_id;
+    await loadFood(result.data[0].household_id);
   }
 
   $("createHouse").addEventListener("click", async function () {
@@ -224,48 +250,100 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
 
   var currentHouseholdId = null;
 
+  var currentItems = [];
+
+  function showView(view) {
+    ["dashboard", "inventoryView", "alertsView", "settingsView"].forEach(function (id) {
+      $(id).classList.toggle("hidden", id !== view);
+    });
+  }
+
+  function openFoodModal() {
+    $("foodMsg").textContent = "";
+    $("foodModal").classList.remove("hidden");
+    $("foodName").focus();
+  }
+
+  function formatDate(value) {
+    if (!value) return "No expiration date";
+    var d = new Date(value + "T00:00:00");
+    return d.toLocaleDateString();
+  }
+
+  function isExpired(x, today) {
+    return x.expiration && new Date(x.expiration + "T23:59:59") < today;
+  }
+
+  function isSoon(x, today, soonDate) {
+    if (!x.expiration) return false;
+    var d = new Date(x.expiration + "T00:00:00");
+    return d >= today && d <= soonDate;
+  }
+
+  function itemHtml(x, today, soonDate) {
+    var low = Number(x.quantity) <= Number(x.low_at);
+    var expired = isExpired(x, today);
+    var soon = isSoon(x, today, soonDate);
+    var flags = [];
+    if (low) flags.push("⚠️ Low stock");
+    if (expired) flags.push("🔴 Expired");
+    else if (soon) flags.push("🟡 Expiring soon");
+    return '<div class="food"><div><b>' + escapeHtml(x.name) + '</b>' +
+      (flags.length ? ' <span>' + escapeHtml(flags.join(" · ")) + '</span>' : '') +
+      '<br><small>' + escapeHtml(x.brand || "") + (x.brand ? " · " : "") +
+      escapeHtml(x.quantity) + " " + escapeHtml(x.unit || "") + " · " +
+      escapeHtml(x.location || "") + " · " + escapeHtml(x.category || "") +
+      (x.expiration ? " · expires " + escapeHtml(formatDate(x.expiration)) : "") +
+      '</small></div>' + (x.notes ? '<small>' + escapeHtml(x.notes) + '</small>' : '') + '</div>';
+  }
+
+  function renderViews() {
+    var items = currentItems;
+    var today = new Date();
+    var soonDate = new Date();
+    soonDate.setHours(23, 59, 59, 999);
+    soonDate.setDate(today.getDate() + 7);
+
+    var lowItems = items.filter(function (x) { return Number(x.quantity) <= Number(x.low_at); });
+    var expiredItems = items.filter(function (x) { return isExpired(x, today); });
+    var soonItems = items.filter(function (x) { return isSoon(x, today, soonDate); });
+
+    $("total").textContent = items.length;
+    $("low").textContent = lowItems.length;
+    $("soon").textContent = soonItems.length;
+    $("expired").textContent = expiredItems.length;
+
+    var allHtml = items.length ? items.map(function (x) { return itemHtml(x, today, soonDate); }).join("") : '<p>Your inventory is empty. Click <b>＋ Add food</b> to add your first item.</p>';
+    $("inventory").innerHTML = allHtml;
+    $("inventoryList").innerHTML = allHtml;
+
+    var alerts = [];
+    lowItems.forEach(function (x) { alerts.push('<div class="food"><b>⚠️ Low stock: ' + escapeHtml(x.name) + '</b><br><small>' + escapeHtml(x.quantity) + ' ' + escapeHtml(x.unit || "") + ' remaining (alert at ' + escapeHtml(x.low_at) + ')</small></div>'); });
+    expiredItems.forEach(function (x) { alerts.push('<div class="food"><b>🔴 Expired: ' + escapeHtml(x.name) + '</b><br><small>Expired ' + escapeHtml(formatDate(x.expiration)) + '</small></div>'); });
+    soonItems.filter(function (x) { return !isExpired(x, today); }).forEach(function (x) { alerts.push('<div class="food"><b>🟡 Expiring soon: ' + escapeHtml(x.name) + '</b><br><small>Expires ' + escapeHtml(formatDate(x.expiration)) + '</small></div>'); });
+    $("alertsList").innerHTML = alerts.length ? alerts.join("") : '<p>No active alerts. Everything looks good!</p>';
+  }
+
   async function loadFood(householdId) {
     currentHouseholdId = householdId;
     var result = await sb.from("food_items").select("*").eq("household_id", householdId).order("expiration", { ascending: true });
     if (result.error) {
       $("inventory").innerHTML = "<p>" + escapeHtml(result.error.message) + "</p>";
+      $("inventoryList").innerHTML = "<p>" + escapeHtml(result.error.message) + "</p>";
       return;
     }
-    var items = result.data || [];
-    $("total").textContent = items.length;
-    $("low").textContent = items.filter(function (x) { return Number(x.quantity) <= Number(x.low_at); }).length;
-    var today = new Date();
-    var soonDate = new Date();
-    soonDate.setDate(today.getDate() + 7);
-    $("expired").textContent = items.filter(function (x) { return x.expiration && new Date(x.expiration) < today; }).length;
-    $("soon").textContent = items.filter(function (x) {
-      var d = x.expiration ? new Date(x.expiration) : null;
-      return d && d >= today && d <= soonDate;
-    }).length;
-
-    if (!items.length) {
-      $("inventory").innerHTML = "<p>Your inventory is empty. Click <b>＋ Add food</b> to add your first item.</p>";
-      return;
-    }
-
-    $("inventory").innerHTML = items.map(function (x) {
-      var warning = Number(x.quantity) <= Number(x.low_at) ? " ⚠️ Low stock" : "";
-      return '<div class="food"><div class="row"><div><b>' + escapeHtml(x.name) + '</b>' + warning +
-        '<br><small>' + escapeHtml(x.brand || "") + (x.brand ? " · " : "") +
-        escapeHtml(x.quantity) + " " + escapeHtml(x.unit || "") + " · " +
-        escapeHtml(x.location || "") + " · " + escapeHtml(x.category || "") +
-        (x.expiration ? " · expires " + escapeHtml(x.expiration) : "") +
-        '</small></div></div>' +
-        (x.notes ? '<small>' + escapeHtml(x.notes) + '</small>' : '') +
-        '</div>';
-    }).join("");
+    currentItems = result.data || [];
+    renderViews();
   }
 
-  $("addFood").addEventListener("click", function () {
-    $("foodMsg").textContent = "";
-    $("foodModal").classList.remove("hidden");
-    $("foodName").focus();
-  });
+  $("navDashboard").addEventListener("click", function () { showView("dashboard"); });
+  $("navInventory").addEventListener("click", function () { showView("inventoryView"); });
+  $("navAlerts").addEventListener("click", function () { showView("alertsView"); });
+  $("navSettings").addEventListener("click", function () { showView("settingsView"); });
+  $("refreshApp").addEventListener("click", function () { if (currentHouseholdId) loadFood(currentHouseholdId); });
+
+  $("addFood").addEventListener("click", openFoodModal);
+  $("addFood2").addEventListener("click", openFoodModal);
 
   $("closeFood").addEventListener("click", function () {
     $("foodModal").classList.add("hidden");

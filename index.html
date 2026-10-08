@@ -3,410 +3,170 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kitchen Keeper</title>
+<meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
+<title>Kitchen Keeper</title>
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f7f5;color:#17221b}
-button,input,select,textarea{font:inherit}button{cursor:pointer}
-header{padding:24px;background:#183b29;color:white}h1{margin:0 0 6px}.wrap{max-width:1050px;margin:auto;padding:24px}
-.auth{max-width:430px;margin:50px auto;background:white;padding:28px;border-radius:16px;box-shadow:0 8px 30px #0001}
-.tabs{display:flex;gap:8px;margin-bottom:20px}.tabs button{flex:1;padding:12px;border:0;border-radius:9px;background:#e8eee9}.tabs button.active{background:#2f7d4b;color:white}
-input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-radius:8px;margin:6px 0 14px;background:white}
-.primary{background:#2f7d4b;color:white;border:0;padding:12px 18px;border-radius:9px}.secondary{background:#e8eee9;border:0;padding:12px 18px;border-radius:9px}
-.msg{min-height:22px;margin:8px 0;color:#b42318}.hidden{display:none!important}
-.appnav{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.appnav button{border:0;padding:10px 14px;border-radius:8px;background:#e8eee9}
-.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{background:white;padding:18px;border-radius:12px}.card b{font-size:28px}
-.panel{background:white;padding:20px;border-radius:14px;margin-top:18px}
-.row{display:flex;gap:10px;align-items:center;justify-content:space-between}.food{padding:14px 0;border-bottom:1px solid #e4e9e5}
-@media(max-width:700px){.cards{grid-template-columns:repeat(2,1fr)}.wrap{padding:15px}}
+:root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.hidden{display:none!important}
+header{background:var(--green);color:#fff;padding:16px 20px;position:sticky;top:0;z-index:5}
+.header-row{max-width:1100px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:12px}
+.brand{font-size:22px;font-weight:800}.header-actions{display:flex;gap:8px}.header-actions button{background:#fff;color:var(--green);border:0;border-radius:8px;padding:8px 12px}
+nav{max-width:1100px;margin:auto;display:flex;gap:6px;padding:10px 0;overflow:auto}
+nav button{border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px 15px;white-space:nowrap}
+nav button.active{background:var(--green);color:#fff;border-color:var(--green)}
+main{max-width:1100px;margin:0 auto;padding:20px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}.stat{font-size:28px;font-weight:800}.muted{color:var(--muted);font-size:14px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin:14px 0}.toolbar input,.toolbar select{flex:1;min-width:180px}
+input,select,textarea{width:100%;border:1px solid #cbd5ce;border-radius:8px;padding:10px;background:#fff}textarea{min-height:90px;resize:vertical}
+label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{background:var(--green);color:#fff;border:0;border-radius:8px;padding:10px 15px}.secondary{background:#fff;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 15px}.danger{background:#fff;color:var(--danger);border:1px solid #e5b7b2;border-radius:8px;padding:10px 15px}
+.list{display:grid;gap:10px}.item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px}.item-title{font-weight:750}.bad{color:var(--danger);font-weight:700}.warn{color:var(--warn);font-weight:700}.actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.badge{display:inline-block;border-radius:999px;padding:3px 8px;background:#edf2ee;color:#405149;font-size:12px;margin:2px}
+.empty{padding:30px;text-align:center;color:var(--muted);background:#fff;border:1px dashed var(--line);border-radius:10px}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:15px;z-index:20}.modal-box{background:#fff;width:min(720px,100%);max-height:90vh;overflow:auto;border-radius:14px;padding:20px}.modal-head{display:flex;justify-content:space-between;align-items:center}.modal-head button{border:0;background:none;font-size:24px}.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px}.full{grid-column:1/-1}
+.auth{min-height:100vh;display:grid;place-items:center;padding:20px}.auth-box{width:min(440px,100%);background:#fff;border:1px solid var(--line);border-radius:15px;padding:24px}.tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:8px}.tabs .active{background:var(--green);color:#fff}
+.notice{padding:10px;border-radius:8px;background:#eef5f0;margin:10px 0}.error{background:#fff0ef;color:var(--danger)}
+@media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.item{grid-template-columns:1fr}.actions{justify-content:flex-start}}
 </style>
 </head>
 <body>
-<header><div class="wrap"><h1>🥕 Kitchen Keeper</h1><div>Shared household food inventory</div></div></header>
-
-<section id="auth" class="auth">
-  <div class="tabs">
-    <button id="signInTab" class="active" type="button">Sign in</button>
-    <button id="signUpTab" type="button">Create account</button>
-  </div>
+<div id="authView" class="auth">
+ <div class="auth-box">
+  <h1>Kitchen Keeper</h1><p class="muted">Shared household food inventory.</p>
+  <div class="tabs"><button id="tabSignIn" class="active">Sign in</button><button id="tabSignUp">Create account</button></div>
   <form id="authForm">
-    <label>Email</label>
-    <input id="email" type="email" required autocomplete="email">
-    <label>Password</label>
-    <input id="password" type="password" required minlength="6" autocomplete="current-password">
-    <button id="authButton" class="primary" type="submit">Sign in</button>
-  </form>
-  <div id="authMsg" class="msg"></div>
+   <label>Email</label><input id="authEmail" type="email" required>
+   <label>Password</label><input id="authPassword" type="password" minlength="6" required>
+   <button class="primary" style="width:100%;margin-top:14px" id="authSubmit">Sign in</button>
+  </form><div id="authMsg"></div>
+ </div>
+</div>
+
+<div id="appView" class="hidden">
+<header><div class="header-row"><div class="brand">Kitchen Keeper</div><div class="header-actions"><button id="addFoodTop">+ Add Food</button><button id="signOut">Sign out</button></div></div></header>
+<nav>
+ <button data-view="dashboard" class="active">Dashboard</button>
+ <button data-view="inventory">Inventory</button>
+ <button data-view="alerts">Alerts</button>
+ <button data-view="settings">Settings</button>
+</nav>
+<main>
+<section id="dashboard" class="view">
+ <h2>Dashboard</h2><div class="grid">
+  <div class="card"><div class="muted">Total items</div><div class="stat" id="statTotal">0</div></div>
+  <div class="card"><div class="muted">Low stock</div><div class="stat" id="statLow">0</div></div>
+  <div class="card"><div class="muted">Expiring soon</div><div class="stat" id="statSoon">0</div></div>
+  <div class="card"><div class="muted">Expired</div><div class="stat" id="statExpired">0</div></div>
+ </div>
+ <div class="card" style="margin-top:14px"><h3>Needs attention</h3><div id="dashAlerts" class="list"></div></div>
 </section>
 
-<section id="app" class="wrap hidden">
-  <div class="row">
-    <h2>Kitchen Keeper</h2>
-    <button id="signOut" class="secondary" type="button">Sign out</button>
-  </div>
-  <div class="appnav">
-    <button id="navDashboard" type="button" onclick="window.showKitchenView('dashboard')">Dashboard</button>
-    <button id="navInventory" type="button" onclick="window.showKitchenView('inventoryView')">Inventory</button>
-    <button id="navAlerts" type="button" onclick="window.showKitchenView('alertsView')">Alerts</button>
-    <button id="navSettings" type="button" onclick="window.showKitchenView('settingsView')">Settings</button>
-  </div>
-  <div id="householdSetup" class="panel">
-    <h2>Set up your household</h2>
-    <p>Create a household or join one with an invite code.</p>
-    <label>Household name</label><input id="houseName" value="My Kitchen">
-    <button id="createHouse" class="primary" type="button">Create household</button>
-    <hr>
-    <label>Invite code</label><input id="inviteCode" maxlength="8" placeholder="8-character code">
-    <button id="joinHouse" class="secondary" type="button">Join household</button>
-    <div id="houseMsg" class="msg"></div>
-  </div>
-  <div id="dashboard" class="hidden">
-    <div class="cards">
-      <div class="card">Total items<br><b id="total">0</b></div>
-      <div class="card">Low stock<br><b id="low">0</b></div>
-      <div class="card">Expiring soon<br><b id="soon">0</b></div>
-      <div class="card">Expired<br><b id="expired">0</b></div>
-    </div>
-    <div class="panel">
-      <div class="row"><h2>Inventory</h2><button id="addFood" class="primary" type="button">＋ Add food</button></div>
-      <div id="inventory"></div>
-    </div>
-  </div>
-
-  <div id="inventoryView" class="hidden">
-    <div class="panel">
-      <div class="row"><h2>Inventory</h2><button id="addFood2" class="primary" type="button">＋ Add food</button></div>
-      <div id="inventoryList"></div>
-    </div>
-  </div>
-
-  <div id="alertsView" class="hidden">
-    <div class="panel"><h2>Alerts</h2><div id="alertsList"></div></div>
-  </div>
-
-  <div id="settingsView" class="hidden">
-    <div class="panel">
-      <h2>Settings</h2>
-      <p><b>Household</b></p>
-      <p id="householdInfo">Your shared household is connected.</p>
-      <button id="refreshApp" class="secondary" type="button">Refresh inventory</button>
-    </div>
-  </div>
-    <div id="foodModal" class="auth hidden" style="position:fixed;inset:0;max-width:none;margin:0;background:#0008;border-radius:0;z-index:20;display:flex;align-items:center;justify-content:center;padding:20px">
-      <div style="background:white;max-width:620px;width:100%;max-height:92vh;overflow:auto;border-radius:16px;padding:24px">
-        <div class="row"><h2 style="margin-top:0">Add food</h2><button id="closeFood" class="secondary" type="button">Close</button></div>
-        <form id="foodForm">
-          <label>Food name *</label>
-          <input id="foodName" required placeholder="e.g. Milk">
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Brand</label><input id="foodBrand" placeholder="Optional"></div>
-            <div><label>Category</label><select id="foodCategory"><option>Produce</option><option>Dairy</option><option>Meat</option><option>Frozen</option><option>Pantry</option><option>Bakery</option><option>Beverages</option><option>Snacks</option><option>Other</option></select></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Quantity *</label><input id="foodQty" type="number" min="0" step="0.01" value="1" required></div>
-            <div><label>Unit</label><select id="foodUnit"><option>each</option><option>package</option><option>can</option><option>bottle</option><option>bag</option><option>box</option><option>lb</option><option>oz</option><option>g</option><option>kg</option><option>gallon</option><option>quart</option><option>pint</option></select></div>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><label>Low-stock alert at</label><input id="foodLow" type="number" min="0" step="0.01" value="1"></div>
-            <div><label>Expiration date</label><input id="foodExpiration" type="date"></div>
-          </div>
-          <label>Location</label>
-          <select id="foodLocation"><option>Pantry</option><option>Refrigerator</option><option>Freezer</option><option>Counter</option><option>Other</option></select>
-          <label>Notes</label>
-          <textarea id="foodNotes" rows="3" placeholder="Optional notes"></textarea>
-          <div id="foodMsg" class="msg"></div>
-          <button class="primary" type="submit">Save food</button>
-        </form>
-      </div>
-    </div>
-  </div>
+<section id="inventory" class="view hidden">
+ <div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><h2>Inventory</h2><button class="primary" id="addFood">+ Add Food</button></div>
+ <div class="toolbar"><input id="search" placeholder="Search food, brand, notes..."><select id="filterCategory"><option value="">All categories</option></select><select id="filterLocation"><option value="">All locations</option></select><select id="sortBy"><option value="expiration">Expiration</option><option value="name">Name</option><option value="quantity">Quantity</option><option value="created_at">Newest</option></select></div>
+ <div id="inventoryList" class="list"></div>
 </section>
+
+<section id="alerts" class="view hidden">
+ <h2>Alerts</h2><div class="grid">
+  <div class="card"><div class="muted">Expired</div><div class="stat" id="alertExpired">0</div></div>
+  <div class="card"><div class="muted">Expiring soon</div><div class="stat" id="alertSoon">0</div></div>
+  <div class="card"><div class="muted">Low stock</div><div class="stat" id="alertLow">0</div></div>
+ </div><div id="alertList" class="list" style="margin-top:14px"></div>
+</section>
+
+<section id="settings" class="view hidden">
+ <h2>Settings</h2>
+ <div class="card">
+  <h3>Household</h3><div class="muted">Household ID</div><p id="householdIdText">—</p>
+  <label>Household name</label><input id="householdName">
+  <button class="primary" id="saveHousehold" style="margin-top:10px">Save household settings</button>
+ </div>
+ <div class="card" style="margin-top:14px"><h3>Alert preferences</h3>
+  <label>Days before expiration to alert</label><input id="daysBefore" type="number" min="0" value="7">
+  <label><input id="browserNotify" type="checkbox" style="width:auto;margin-right:6px"> Enable browser notifications when supported</label>
+  <button class="primary" id="saveAlertSettings">Save alert settings</button>
+ </div>
+ <div class="card" style="margin-top:14px"><h3>Customize</h3>
+  <label>Categories (comma separated)</label><input id="customCategories">
+  <label>Locations (comma separated)</label><input id="customLocations">
+  <label>Units (comma separated)</label><input id="customUnits">
+  <button class="primary" id="saveCustomize" style="margin-top:10px">Save custom options</button>
+ </div>
+ <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="muted">Export your household inventory to a JSON file, or import a previous export.</p>
+  <button class="secondary" id="exportData">Export inventory</button>
+  <input id="importData" type="file" accept=".json" style="margin-top:10px">
+ </div>
+</section>
+</main>
+</div>
+
+<div id="foodModal" class="modal hidden">
+<div class="modal-box"><div class="modal-head"><h2 id="foodModalTitle">Add Food</h2><button id="closeFood">×</button></div>
+<form id="foodForm"><input id="foodId" type="hidden"><div class="form-grid">
+<div><label>Food name *</label><input id="foodName" required></div><div><label>Brand</label><input id="foodBrand"></div>
+<div><label>Category</label><select id="foodCategory"></select></div><div><label>Quantity *</label><input id="foodQty" type="number" min="0" step="any" required></div>
+<div><label>Unit</label><select id="foodUnit"></select></div><div><label>Low-stock alert at</label><input id="foodLow" type="number" min="0" step="any" value="1"></div>
+<div><label>Expiration date</label><input id="foodExpiration" type="date"></div><div><label>Location</label><select id="foodLocation"></select></div>
+<div class="full"><label>Notes</label><textarea id="foodNotes"></textarea></div>
+<div class="full"><label>Picture (stored in this browser)</label><input id="foodPhoto" type="file" accept="image/*"></div>
+</div><div class="actions" style="margin-top:15px"><button type="button" class="secondary" id="cancelFood">Cancel</button><button class="primary">Save Food</button></div></form>
+</div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-(function () {
-  "use strict";
+const SUPABASE_URL="https://gprlzbgcpsmqofpjyase.supabase.co";
+const SUPABASE_KEY="sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x";
+const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+const $=id=>document.getElementById(id);
+let mode="signin", user=null, household=null, foods=[], editingId=null;
+const defaults={categories:["Produce","Dairy","Meat","Frozen","Pantry","Snacks","Beverages","Other"],locations:["Pantry","Refrigerator","Freezer","Cabinet","Other"],units:["each","can","box","bag","bottle","jar","lb","oz","g","kg","gallon","quart","liter"]};
+let prefs={daysBefore:7,browserNotify:false,categories:defaults.categories.slice(),locations:defaults.locations.slice(),units:defaults.units.slice()};
 
-  var SUPABASE_URL = "https://gprlzbgcpsmqofpjyase.supabase.co";
-  var SUPABASE_KEY = "sb_publishable__4rtFjMMNlRD8D5UY7LSGQ_njJd9G-x";
-  var sb = null;
-  var mode = "signin";
+function msg(el,text,error=false){el.innerHTML=text?'<div class="notice '+(error?'error':'')+'">'+text+'</div>':""}
+function options(sel,arr,keep){const val=sel.value;sel.innerHTML=arr.map(x=>'<option>'+escapeHtml(x)+'</option>').join("");if(keep&&arr.includes(val))sel.value=val}
+function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function loadPrefs(){try{const p=JSON.parse(localStorage.getItem("kk_prefs")||"{}");prefs={...prefs,...p}}catch(e){}}
+function savePrefs(){localStorage.setItem("kk_prefs",JSON.stringify(prefs))}
+function setupSelects(){options($("foodCategory"),prefs.categories);options($("foodUnit"),prefs.units);options($("foodLocation"),prefs.locations);options($("filterCategory"),["All categories",...prefs.categories]);options($("filterLocation"),["All locations",...prefs.locations])}
+function showView(name){document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));$(name).classList.remove("hidden");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="inventory")renderInventory();if(name==="alerts")renderAlerts();if(name==="dashboard")renderDashboard();if(name==="settings")loadSettingsUI()}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
 
-  var $ = function (id) { return document.getElementById(id); };
+$("tabSignIn").onclick=()=>{mode="signin";$("tabSignIn").classList.add("active");$("tabSignUp").classList.remove("active");$("authSubmit").textContent="Sign in";msg($("authMsg"),"")}
+$("tabSignUp").onclick=()=>{mode="signup";$("tabSignUp").classList.add("active");$("tabSignIn").classList.remove("active");$("authSubmit").textContent="Create account";msg($("authMsg"),"")}
+$("authForm").onsubmit=async e=>{e.preventDefault();const email=$("authEmail").value.trim(),password=$("authPassword").value;msg($("authMsg"),"Working...");let r=mode==="signup"?await sb.auth.signUp({email,password}):await sb.auth.signInWithPassword({email,password});if(r.error){msg($("authMsg"),r.error.message,true);return}if(mode==="signup"&&!r.data.session){msg($("authMsg"),"Account created. You can now sign in.");return}await bootUser(r.data.user)}
+$("signOut").onclick=async()=>{await sb.auth.signOut();location.reload()}
 
-  function setMode(next) {
-    mode = next;
-    $("signInTab").classList.toggle("active", mode === "signin");
-    $("signUpTab").classList.toggle("active", mode === "signup");
-    $("authButton").textContent = mode === "signin" ? "Sign in" : "Create account";
-    $("authMsg").textContent = "";
-  }
+async function bootUser(u){user=u;$("authView").classList.add("hidden");$("appView").classList.remove("hidden");loadPrefs();setupSelects();await loadHousehold()}
+async function loadHousehold(){
+ let r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle();
+ if(r.error){alert(r.error.message);return}
+ if(!r.data){const name=prompt("Enter a household name to create, or cancel to set it up later:");if(name){let x=await sb.rpc("create_household",{hname:name});if(x.error){alert(x.error.message);return}r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle()}else{return}}
+ household=r.data?.households||null;if(!household)return;$("householdIdText").textContent=household.id;await loadFoods();showView("dashboard")
+}
+async function loadFoods(){if(!household)return;let r=await sb.from("food_items").select("*").eq("household_id",household.id).order("expiration",{ascending:true});if(r.error){alert(r.error.message);return}foods=r.data||[];renderDashboard();renderInventory();renderAlerts()}
+function daysUntil(date){if(!date)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(date+"T00:00:00");return Math.ceil((b-a)/86400000)}
+function status(f){const d=daysUntil(f.expiration);if(Number(f.quantity)<=Number(f.low_at))return"low";if(d!==null&&d<0)return"expired";if(d!==null&&d<=Number(prefs.daysBefore))return"soon";return"ok"}
+function statusText(f){const s=status(f);if(s==="expired")return'<span class="bad">Expired</span>';if(s==="soon")return'<span class="warn">Expires in '+daysUntil(f.expiration)+' days</span>';if(s==="low")return'<span class="warn">Low stock</span>';return"OK"}
+function renderDashboard(){const low=foods.filter(f=>status(f)==="low"),expired=foods.filter(f=>status(f)==="expired"),soon=foods.filter(f=>status(f)==="soon");$("statTotal").textContent=foods.length;$("statLow").textContent=low.length;$("statSoon").textContent=soon.length;$("statExpired").textContent=expired.length;$("dashAlerts").innerHTML=[...expired,...soon,...low].slice(0,8).map(foodHtml).join("")||'<div class="empty">Everything looks good.</div>'}
+function foodHtml(f){return '<div class="item"><div><div class="item-title">'+escapeHtml(f.name)+'</div><div class="muted">'+escapeHtml(f.brand||"")+' · '+escapeHtml(f.quantity)+" "+escapeHtml(f.unit||"")+'</div><div>'+statusText(f)+' '+(f.expiration?'<span class="badge">'+escapeHtml(f.expiration)+'</span>':"")+'</div></div><div class="actions"><button class="secondary" onclick="editFood(\''+f.id+'\')">Edit</button><button class="danger" onclick="deleteFood(\''+f.id+'\')">Delete</button></div></div>'}
+function renderInventory(){let q=($("search")?.value||"").toLowerCase(),cat=$("filterCategory")?.value||"",loc=$("filterLocation")?.value||"",sort=$("sortBy")?.value||"expiration";let arr=foods.filter(f=>(!q||[f.name,f.brand,f.notes].join(" ").toLowerCase().includes(q))&&(!cat||cat==="All categories"||f.category===cat)&&(!loc||loc==="All locations"||f.location===loc));arr.sort((a,b)=>{if(sort==="name")return a.name.localeCompare(b.name);if(sort==="quantity")return Number(a.quantity)-Number(b.quantity);if(sort==="created_at")return String(b.created_at).localeCompare(String(a.created_at));return String(a.expiration||"9999").localeCompare(String(b.expiration||"9999"))});$("inventoryList").innerHTML=arr.map(foodHtml).join("")||'<div class="empty">No food items found.</div>'}
+function renderAlerts(){const bad=foods.filter(f=>status(f)!=="ok");$("alertExpired").textContent=foods.filter(f=>status(f)==="expired").length;$("alertSoon").textContent=foods.filter(f=>status(f)==="soon").length;$("alertLow").textContent=foods.filter(f=>status(f)==="low").length;$("alertList").innerHTML=bad.map(foodHtml).join("")||'<div class="empty">No alerts.</div>'}
+$("search").oninput=renderInventory;$("filterCategory").onchange=renderInventory;$("filterLocation").onchange=renderInventory;$("sortBy").onchange=renderInventory;
+function openFood(id){editingId=id||null;$("foodModalTitle").textContent=id?"Edit Food":"Add Food";$("foodForm").reset();$("foodId").value=id||"";if(id){const f=foods.find(x=>x.id===id);if(!f)return;$("foodName").value=f.name||"";$("foodBrand").value=f.brand||"";$("foodCategory").value=f.category||prefs.categories[0];$("foodQty").value=f.quantity;$("foodUnit").value=f.unit||prefs.units[0];$("foodLow").value=f.low_at??1;$("foodExpiration").value=f.expiration||"";$("foodLocation").value=f.location||prefs.locations[0];$("foodNotes").value=f.notes||""}$("foodModal").classList.remove("hidden")}
+window.editFood=id=>openFood(id);window.deleteFood=async id=>{if(!confirm("Delete this food item?"))return;let r=await sb.from("food_items").delete().eq("id",id).eq("household_id",household.id);if(r.error){alert(r.error.message);return}await loadFoods()}
+$("addFood").onclick=()=>openFood();$("addFoodTop").onclick=()=>openFood();$("closeFood").onclick=()=>$("foodModal").classList.add("hidden");$("cancelFood").onclick=()=>$("foodModal").classList.add("hidden");
+$("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$("foodPhoto").files[0];if(file&&file.size<500000){photo=await new Promise(resolve=>{const r=new FileReader();r.onload=()=>resolve(r.result);r.readAsDataURL(file)})}let row={household_id:household.id,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if(photo)row.photo_data=photo;let r=editingId?await sb.from("food_items").update(row).eq("id",editingId).eq("household_id",household.id):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
 
-  $("signInTab").addEventListener("click", function () { setMode("signin"); });
-  $("signUpTab").addEventListener("click", function () { setMode("signup"); });
+function loadSettingsUI(){$("householdName").value=household?.name||"";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
+$("saveHousehold").onclick=async()=>{if(!household)return;let r=await sb.from("households").update({name:$("householdName").value.trim()||"Household"}).eq("id",household.id);if(r.error)alert(r.error.message);else{household.name=$("householdName").value.trim();alert("Household settings saved.")}}
+$("saveAlertSettings").onclick=async()=>{prefs.daysBefore=Math.max(0,Number($("daysBefore").value)||0);prefs.browserNotify=$("browserNotify").checked;savePrefs();if(prefs.browserNotify&&"Notification"in window&&Notification.permission==="default")await Notification.requestPermission();renderDashboard();renderAlerts();alert("Alert settings saved.")}
+$("saveCustomize").onclick=()=>{const parse=s=>s.split(",").map(x=>x.trim()).filter(Boolean);prefs.categories=parse($("customCategories").value)||defaults.categories;prefs.locations=parse($("customLocations").value)||defaults.locations;prefs.units=parse($("customUnits").value)||defaults.units;savePrefs();setupSelects();alert("Custom options saved.")}
+$("exportData").onclick=()=>{const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),items:foods},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="kitchen-keeper-inventory.json";a.click();URL.revokeObjectURL(a.href)}
+$("importData").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw new Error("No items found in this file.");for(const x of items){const row={household_id:household.id,name:x.name||"Unnamed",brand:x.brand||null,quantity:Number(x.quantity)||0,unit:x.unit||"each",low_at:Number(x.low_at)||0,expiration:x.expiration||null,location:x.location||"Other",category:x.category||"Other",notes:x.notes||null,photo_data:x.photo_data||null};delete row.id;delete row.created_at;delete row.updated_at;let r=await sb.from("food_items").insert(row);if(r.error)throw r.error}await loadFoods();alert("Inventory imported.")}catch(err){alert("Import failed: "+err.message)}e.target.value=""}
 
-  function showMessage(text) {
-    $("authMsg").textContent = text;
-  }
-
-  async function start() {
-    if (!window.supabase) {
-      showMessage("The authentication library did not load. Please refresh the page.");
-      return;
-    }
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    var result = await sb.auth.getSession();
-    if (result.data && result.data.session) {
-      showApp();
-    }
-  }
-
-  $("authForm").addEventListener("submit", async function (event) {
-    event.preventDefault();
-    if (!sb) {
-      showMessage("Connecting to authentication. Please wait a moment and try again.");
-      await start();
-      if (!sb) return;
-    }
-
-    var email = $("email").value.trim();
-    var password = $("password").value;
-    $("authButton").disabled = true;
-    showMessage("Please wait...");
-
-    var result;
-    if (mode === "signup") {
-      result = await sb.auth.signUp({ email: email, password: password });
-    } else {
-      result = await sb.auth.signInWithPassword({ email: email, password: password });
-    }
-
-    $("authButton").disabled = false;
-
-    if (result.error) {
-      showMessage(result.error.message);
-      return;
-    }
-
-    if (mode === "signup" && !result.data.session) {
-      showMessage("Account created. Check your email to confirm your account.");
-      return;
-    }
-
-    showMessage("");
-    showApp();
-  });
-
-  $("signOut").addEventListener("click", async function () {
-    if (sb) await sb.auth.signOut();
-    $("app").classList.add("hidden");
-    $("auth").classList.remove("hidden");
-  });
-
-  async function showApp() {
-    $("auth").classList.add("hidden");
-    $("app").classList.remove("hidden");
-    await checkHousehold();
-  }
-
-  async function checkHousehold() {
-    if (!sb) return;
-    var result = await sb.from("household_members").select("household_id").limit(1);
-    if (result.error || !result.data || result.data.length === 0) {
-      $("householdSetup").classList.remove("hidden");
-      $("dashboard").classList.add("hidden");
-      return;
-    }
-    $("householdSetup").classList.add("hidden");
-    $("dashboard").classList.remove("hidden");
-    showView("dashboard");
-    $("householdInfo").textContent = "Household ID: " + result.data[0].household_id;
-    await loadFood(result.data[0].household_id);
-  }
-
-  $("createHouse").addEventListener("click", async function () {
-    if (!sb) return;
-    var name = $("houseName").value.trim() || "My Kitchen";
-    var result = await sb.rpc("create_household", { hname: name });
-    if (result.error) {
-      $("houseMsg").textContent = result.error.message;
-      return;
-    }
-    $("houseMsg").textContent = "Household created.";
-    await checkHousehold();
-  });
-
-  $("joinHouse").addEventListener("click", async function () {
-    if (!sb) return;
-    var code = $("inviteCode").value.trim();
-    var result = await sb.rpc("join_household", { invite: code });
-    if (result.error) {
-      $("houseMsg").textContent = result.error.message;
-      return;
-    }
-    $("houseMsg").textContent = "Joined household.";
-    await checkHousehold();
-  });
-
-  var currentHouseholdId = null;
-
-  var currentItems = [];
-
-  window.showKitchenView = function (view) {
-    ["dashboard", "inventoryView", "alertsView", "settingsView"].forEach(function (id) {
-      var el = $(id);
-      if (el) el.classList.toggle("hidden", id !== view);
-    });
-    window.scrollTo(0, 0);
-  };
-
-  function showView(view) {
-    ["dashboard", "inventoryView", "alertsView", "settingsView"].forEach(function (id) {
-      $(id).classList.toggle("hidden", id !== view);
-    });
-  }
-
-  function openFoodModal() {
-    $("foodMsg").textContent = "";
-    $("foodModal").classList.remove("hidden");
-    $("foodName").focus();
-  }
-
-  function formatDate(value) {
-    if (!value) return "No expiration date";
-    var d = new Date(value + "T00:00:00");
-    return d.toLocaleDateString();
-  }
-
-  function isExpired(x, today) {
-    return x.expiration && new Date(x.expiration + "T23:59:59") < today;
-  }
-
-  function isSoon(x, today, soonDate) {
-    if (!x.expiration) return false;
-    var d = new Date(x.expiration + "T00:00:00");
-    return d >= today && d <= soonDate;
-  }
-
-  function itemHtml(x, today, soonDate) {
-    var low = Number(x.quantity) <= Number(x.low_at);
-    var expired = isExpired(x, today);
-    var soon = isSoon(x, today, soonDate);
-    var flags = [];
-    if (low) flags.push("⚠️ Low stock");
-    if (expired) flags.push("🔴 Expired");
-    else if (soon) flags.push("🟡 Expiring soon");
-    return '<div class="food"><div><b>' + escapeHtml(x.name) + '</b>' +
-      (flags.length ? ' <span>' + escapeHtml(flags.join(" · ")) + '</span>' : '') +
-      '<br><small>' + escapeHtml(x.brand || "") + (x.brand ? " · " : "") +
-      escapeHtml(x.quantity) + " " + escapeHtml(x.unit || "") + " · " +
-      escapeHtml(x.location || "") + " · " + escapeHtml(x.category || "") +
-      (x.expiration ? " · expires " + escapeHtml(formatDate(x.expiration)) : "") +
-      '</small></div>' + (x.notes ? '<small>' + escapeHtml(x.notes) + '</small>' : '') + '</div>';
-  }
-
-  function renderViews() {
-    var items = currentItems;
-    var today = new Date();
-    var soonDate = new Date();
-    soonDate.setHours(23, 59, 59, 999);
-    soonDate.setDate(today.getDate() + 7);
-
-    var lowItems = items.filter(function (x) { return Number(x.quantity) <= Number(x.low_at); });
-    var expiredItems = items.filter(function (x) { return isExpired(x, today); });
-    var soonItems = items.filter(function (x) { return isSoon(x, today, soonDate); });
-
-    $("total").textContent = items.length;
-    $("low").textContent = lowItems.length;
-    $("soon").textContent = soonItems.length;
-    $("expired").textContent = expiredItems.length;
-
-    var allHtml = items.length ? items.map(function (x) { return itemHtml(x, today, soonDate); }).join("") : '<p>Your inventory is empty. Click <b>＋ Add food</b> to add your first item.</p>';
-    $("inventory").innerHTML = allHtml;
-    $("inventoryList").innerHTML = allHtml;
-
-    var alerts = [];
-    lowItems.forEach(function (x) { alerts.push('<div class="food"><b>⚠️ Low stock: ' + escapeHtml(x.name) + '</b><br><small>' + escapeHtml(x.quantity) + ' ' + escapeHtml(x.unit || "") + ' remaining (alert at ' + escapeHtml(x.low_at) + ')</small></div>'); });
-    expiredItems.forEach(function (x) { alerts.push('<div class="food"><b>🔴 Expired: ' + escapeHtml(x.name) + '</b><br><small>Expired ' + escapeHtml(formatDate(x.expiration)) + '</small></div>'); });
-    soonItems.filter(function (x) { return !isExpired(x, today); }).forEach(function (x) { alerts.push('<div class="food"><b>🟡 Expiring soon: ' + escapeHtml(x.name) + '</b><br><small>Expires ' + escapeHtml(formatDate(x.expiration)) + '</small></div>'); });
-    $("alertsList").innerHTML = alerts.length ? alerts.join("") : '<p>No active alerts. Everything looks good!</p>';
-  }
-
-  async function loadFood(householdId) {
-    currentHouseholdId = householdId;
-    var result = await sb.from("food_items").select("*").eq("household_id", householdId).order("expiration", { ascending: true });
-    if (result.error) {
-      $("inventory").innerHTML = "<p>" + escapeHtml(result.error.message) + "</p>";
-      $("inventoryList").innerHTML = "<p>" + escapeHtml(result.error.message) + "</p>";
-      return;
-    }
-    currentItems = result.data || [];
-    renderViews();
-  }
-
-  $("navDashboard").addEventListener("click", function () { showView("dashboard"); });
-  $("navInventory").addEventListener("click", function () { showView("inventoryView"); });
-  $("navAlerts").addEventListener("click", function () { showView("alertsView"); });
-  $("navSettings").addEventListener("click", function () { showView("settingsView"); });
-  $("refreshApp").addEventListener("click", function () { if (currentHouseholdId) loadFood(currentHouseholdId); });
-
-  $("addFood").addEventListener("click", openFoodModal);
-  $("addFood2").addEventListener("click", openFoodModal);
-
-  $("closeFood").addEventListener("click", function () {
-    $("foodModal").classList.add("hidden");
-  });
-
-  $("foodForm").addEventListener("submit", async function (event) {
-    event.preventDefault();
-    if (!sb || !currentHouseholdId) {
-      $("foodMsg").textContent = "Your household is not ready yet. Please refresh and try again.";
-      return;
-    }
-
-    var saveButton = event.submitter;
-    saveButton.disabled = true;
-    $("foodMsg").textContent = "Saving...";
-
-    var row = {
-      household_id: currentHouseholdId,
-      name: $("foodName").value.trim(),
-      brand: $("foodBrand").value.trim() || null,
-      quantity: Number($("foodQty").value),
-      unit: $("foodUnit").value,
-      low_at: Number($("foodLow").value),
-      expiration: $("foodExpiration").value || null,
-      location: $("foodLocation").value,
-      category: $("foodCategory").value,
-      notes: $("foodNotes").value.trim() || null
-    };
-
-    var result = await sb.from("food_items").insert(row);
-    saveButton.disabled = false;
-
-    if (result.error) {
-      $("foodMsg").textContent = result.error.message;
-      return;
-    }
-
-    $("foodForm").reset();
-    $("foodQty").value = "1";
-    $("foodLow").value = "1";
-    $("foodMsg").textContent = "";
-    $("foodModal").classList.add("hidden");
-    await loadFood(currentHouseholdId);
-  });
-
-  function escapeHtml(value) {
-    return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) {
-      return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c];
-    });
-  }
-
-  start().catch(function (error) {
-    showMessage(error.message || "Unable to start authentication.");
-  });
-}());
+sb.auth.getSession().then(async r=>{if(r.data.session)await bootUser(r.data.session.user)});
+sb.auth.onAuthStateChange((_e,s)=>{if(s&&!user)bootUser(s.user)});
 </script>
 </body>
 </html>

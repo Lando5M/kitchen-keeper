@@ -45,10 +45,10 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
     <button id="signOut" class="secondary" type="button">Sign out</button>
   </div>
   <div class="appnav">
-    <button id="navDashboard" type="button">Dashboard</button>
-    <button id="navInventory" type="button">Inventory</button>
-    <button id="navAlerts" type="button">Alerts</button>
-    <button id="navSettings" type="button">Settings</button>
+    <button id="navDashboard" type="button" onclick="window.showKitchenView('dashboard')">Dashboard</button>
+    <button id="navInventory" type="button" onclick="window.showKitchenView('inventoryView')">Inventory</button>
+    <button id="navAlerts" type="button" onclick="window.showKitchenView('alertsView')">Alerts</button>
+    <button id="navSettings" type="button" onclick="window.showKitchenView('settingsView')">Settings</button>
   </div>
   <div id="householdSetup" class="panel">
     <h2>Set up your household</h2>
@@ -251,6 +251,14 @@ input,select,textarea{width:100%;padding:11px;border:1px solid #ccd6ce;border-ra
   var currentHouseholdId = null;
 
   var currentItems = [];
+
+  window.showKitchenView = function (view) {
+    ["dashboard", "inventoryView", "alertsView", "settingsView"].forEach(function (id) {
+      var el = $(id);
+      if (el) el.classList.toggle("hidden", id !== view);
+    });
+    window.scrollTo(0, 0);
+  };
 
   function showView(view) {
     ["dashboard", "inventoryView", "alertsView", "settingsView"].forEach(function (id) {

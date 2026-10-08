@@ -104,7 +104,7 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 <div id="foodModal" class="modal hidden">
 <div class="modal-box"><div class="modal-head"><h2 id="foodModalTitle">Add Food</h2><button id="closeFood">×</button></div>
 <form id="foodForm"><input id="foodId" type="hidden"><div class="form-grid">
-<div><label>Food name *</label><input id="foodName" required></div><div><label>Brand</label><input id="foodBrand"></div>
+<div><label>Food name *</label><div style="display:flex;gap:8px"><input id="foodName" required style="flex:1"><button type="button" class="secondary" id="scanBarcode">📷 Scan barcode</button></div><div id="barcodeStatus" class="muted" style="margin-top:5px"></div></div><div><label>Brand</label><input id="foodBrand"></div>
 <div><label>Category</label><select id="foodCategory"></select></div><div><label>Quantity *</label><input id="foodQty" type="number" min="0" step="any" required></div>
 <div><label>Unit</label><select id="foodUnit"></select></div><div><label>Low-stock alert at (this quantity or less)</label><input id="foodLow" type="number" min="0" step="any" value="1"></div>
 <div><label>Expiration date</label><input id="foodExpiration" type="date"></div><div><label>Location</label><select id="foodLocation"></select></div>
@@ -115,6 +115,8 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 </div>
 </div><div class="actions" style="margin-top:15px"><button type="button" class="secondary" id="cancelFood">Cancel</button><button class="primary">Save Food</button></div></form>
 </div></div>
+
+<div id="barcodeModal" class="modal hidden"><div class="modal-box"><div class="modal-head"><h2>Scan Barcode</h2><button id="closeBarcode">×</button></div><div class="muted" style="margin-bottom:10px">Point your phone camera at the product barcode. Hold it steady and keep the barcode well lit.</div><video id="barcodeVideo" playsinline autoplay muted style="width:100%;max-height:55vh;object-fit:cover;border-radius:12px;background:#111"></video><div id="barcodeMessage" class="muted" style="margin-top:10px">Starting camera…</div><div class="actions" style="margin-top:12px"><button type="button" class="secondary" id="cancelBarcode">Cancel</button></div></div></div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
@@ -161,6 +163,43 @@ function openFood(id){editingId=id||null;$("foodModalTitle").textContent=id?"Edi
 window.editFood=id=>openFood(id);window.deleteFood=async id=>{if(!confirm("Delete this food item?"))return;let r=await sb.from("food_items").delete().eq("id",id).eq("household_id",household.id);if(r.error){alert(r.error.message);return}await loadFoods()}
 $("addFood").onclick=()=>openFood();$("addFoodTop").onclick=()=>openFood();$("closeFood").onclick=()=>$("foodModal").classList.add("hidden");$("cancelFood").onclick=()=>$("foodModal").classList.add("hidden");
 $("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$("foodPhoto").files[0];if(file){photo=await new Promise((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);const cleanup=()=>{try{URL.revokeObjectURL(url)}catch(e){}};img.onload=()=>{try{const max=1000,scale=Math.min(1,max/img.width,max/img.height),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});if(!ctx)throw new Error("Your browser could not create an image canvas.");ctx.drawImage(img,0,0,w,h);const out=c.toDataURL("image/jpeg",.72);cleanup();if(!out||out.length<100)throw new Error("The picture could not be converted.");resolve(out)}catch(err){cleanup();reject(err)}};img.onerror=()=>{cleanup();reject(new Error("Your phone returned a picture format that Chrome could not process. Please choose the photo from your gallery instead of taking it directly, then try again."))};img.src=url})}let row={household_id:household.id,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if($("removePhoto").checked)row.photo_data=null;else if(photo)row.photo_data=photo;let r=editingId?await sb.from("food_items").update(row).eq("id",editingId).eq("household_id",household.id):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
+
+let barcodeStream=null, barcodeTimer=null;
+function stopBarcodeScanner(){if(barcodeTimer){clearInterval(barcodeTimer);barcodeTimer=null}if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null}const v=$("barcodeVideo");if(v)v.srcObject=null;$("barcodeModal").classList.add("hidden")}
+async function startBarcodeScanner(){
+ if(!window.isSecureContext){alert("Barcode scanning requires the secure Kitchen Keeper website (HTTPS).");return}
+ if(!("BarcodeDetector" in window)){alert("Barcode scanning is not supported by this browser. Please use Chrome on Android for scanning.");return}
+ stopBarcodeScanner();
+ $("barcodeModal").classList.remove("hidden");$("barcodeMessage").textContent="Starting camera…";
+ try{
+  const formats=await BarcodeDetector.getSupportedFormats();
+  const wanted=["ean_13","ean_8","upc_a","upc_e","code_128","code_39","itf","codabar"].filter(x=>formats.includes(x));
+  const detector=new BarcodeDetector(wanted.length?{formats:wanted}:undefined);
+  barcodeStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+  const video=$("barcodeVideo");video.srcObject=barcodeStream;await video.play();$("barcodeMessage").textContent="Scanning…";
+  barcodeTimer=setInterval(async()=>{
+   if(!barcodeStream||video.readyState<2)return;
+   try{const codes=await detector.detect(video);if(!codes.length)return;const code=(codes[0].rawValue||"").trim();if(!code)return;stopBarcodeScanner();await lookupBarcode(code)}catch(err){console.warn("Barcode scan error",err)}
+  },250);
+ }catch(err){stopBarcodeScanner();alert("Could not start the barcode scanner. Make sure Chrome has camera permission and try again.\n\n"+err.message)}
+}
+async function lookupBarcode(code){
+ $("barcodeStatus").textContent="Looking up barcode "+code+"…";
+ try{
+  const res=await fetch("https://world.openfoodfacts.org/api/v3/product/"+encodeURIComponent(code)+"?fields=product_name,product_name_en,brands,categories_tags_en,quantity,product_quantity");
+  if(!res.ok)throw new Error("Barcode lookup failed ("+res.status+")");
+  const data=await res.json();
+  if(data.status!==1||!data.product){$("barcodeStatus").textContent="Barcode found: "+code+". Product details were not found, so enter the food name manually.";return}
+  const product=data.product;
+  $("foodName").value=product.product_name_en||product.product_name||"";
+  $("foodBrand").value=product.brands||"";
+  if(product.quantity){$("foodNotes").value=( $("foodNotes").value?$("foodNotes").value+"\n":"")+"Package: "+product.quantity+" | Barcode: "+code}
+  else $("foodNotes").value=( $("foodNotes").value?$("foodNotes").value+"\n":"")+"Barcode: "+code;
+  $("foodQty").value=1;
+  $("barcodeStatus").textContent="Found: "+($("foodName").value||code)+". Review the details and save.";
+ }catch(err){$("barcodeStatus").textContent="Barcode: "+code+". Product lookup was unavailable; enter the food name manually.";console.warn(err)}
+}
+$("scanBarcode").onclick=startBarcodeScanner;$("closeBarcode").onclick=stopBarcodeScanner;$("cancelBarcode").onclick=stopBarcodeScanner;
 
 function loadSettingsUI(){$("householdName").value=household?.name||"";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
 $("saveHousehold").onclick=async()=>{if(!household)return;let r=await sb.from("households").update({name:$("householdName").value.trim()||"Household"}).eq("id",household.id);if(r.error)alert(r.error.message);else{household.name=$("householdName").value.trim();alert("Household settings saved.")}}

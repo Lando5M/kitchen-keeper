@@ -205,20 +205,32 @@ async function startBarcodeScanner(){
  }catch(err){stopBarcodeScanner();alert("Could not start the barcode scanner. Make sure Chrome has camera permission and try again.\n\n"+err.message)}
 }
 async function lookupBarcode(code){
- $("barcodeStatus").textContent="Looking up barcode "+code+"…";
- try{
-  const res=await fetch("https://world.openfoodfacts.org/api/v3/product/"+encodeURIComponent(code)+"?fields=product_name,product_name_en,brands,categories_tags_en,quantity,product_quantity");
-  if(!res.ok)throw new Error("Barcode lookup failed ("+res.status+")");
-  const data=await res.json();
-  if(data.status!==1||!data.product){$("barcodeStatus").textContent="Barcode found: "+code+". Product details were not found, so enter the food name manually.";return}
-  const product=data.product;
-  $("foodName").value=product.product_name_en||product.product_name||"";
-  $("foodBrand").value=product.brands||"";
-  if(product.quantity){$("foodNotes").value=( $("foodNotes").value?$("foodNotes").value+"\n":"")+"Package: "+product.quantity+" | Barcode: "+code}
-  else $("foodNotes").value=( $("foodNotes").value?$("foodNotes").value+"\n":"")+"Barcode: "+code;
-  $("foodQty").value=1;
-  $("barcodeStatus").textContent="Found: "+($("foodName").value||code)+". Review the details and save.";
- }catch(err){$("barcodeStatus").textContent="Barcode: "+code+". Product lookup was unavailable; enter the food name manually.";console.warn(err)}
+  $("barcodeStatus").textContent="Looking up barcode "+code+"…";
+  try{
+    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_en,brands,categories_tags_en,quantity,product_quantity";
+    const res=await fetch(url,{headers:{"Accept":"application/json"}});
+    if(!res.ok)throw new Error("Barcode lookup failed ("+res.status+")");
+    const data=await res.json();
+    if(Number(data.status)!==1||!data.product){
+      $("barcodeStatus").textContent="Barcode found: "+code+". Product not found in Open Food Facts.";
+      $("foodNotes").value=(( $("foodNotes").value||"").trim()+(( $("foodNotes").value||"").trim()?"\n":"")+"Barcode: "+code).trim();
+      return;
+    }
+    const product=data.product||{};
+    const name=(product.product_name||product.product_name_en||"").trim();
+    const brand=(product.brands||"").split(",")[0].trim();
+    if(name)$("foodName").value=name;
+    if(brand)$("foodBrand").value=brand;
+    if(product.quantity&&!$("foodNotes").value.trim())$("foodNotes").value="Package: "+product.quantity;
+    const cats=Array.isArray(product.categories_tags_en)?product.categories_tags_en:[];
+    if(cats.length&&!$("foodCategory").value)$("foodCategory").value=cats[0].replace(/^en:/,"").replace(/-/g," ");
+    $("foodNotes").value=(( $("foodNotes").value||"").trim()+(( $("foodNotes").value||"").trim()?"\n":"")+"Barcode: "+code).trim();
+    $("barcodeStatus").textContent="Found: "+(name||code)+". Review the details and save.";
+  }catch(err){
+    $("barcodeStatus").textContent="Barcode: "+code+". Product lookup was unavailable; enter the food name manually.";
+    $("foodNotes").value=(( $("foodNotes").value||"").trim()+(( $("foodNotes").value||"").trim()?"\n":"")+"Barcode: "+code).trim();
+    console.warn("Barcode lookup error",err);
+  }
 }
 $("scanBarcode").onclick=startBarcodeScanner;$("closeBarcode").onclick=stopBarcodeScanner;$("cancelBarcode").onclick=stopBarcodeScanner;
 

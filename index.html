@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="alert-fix-2026-10-08-v2">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="household-invites-2026-10-09-v1">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -81,6 +81,11 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
   <h3>Household</h3><div class="muted">Household ID</div><p id="householdIdText">—</p>
   <label>Household name</label><input id="householdName">
   <button class="primary" id="saveHousehold" style="margin-top:10px">Save household settings</button>
+  <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
+  <h3>Invite household members</h3>
+  <p class="muted">Share this code with people you trust. They need their own Kitchen Keeper account to join.</p>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><strong id="householdInviteCode" style="font-size:22px;letter-spacing:2px">Loading…</strong><button class="secondary" id="copyInviteCode" type="button">Copy code</button></div>
+  <div id="inviteMsg" class="muted" style="margin-top:8px"></div>
  </div>
  <div class="card" style="margin-top:14px"><h3>Alert preferences</h3>
   <label>Days before expiration to alert</label><input id="daysBefore" type="number" min="0" value="7">
@@ -147,8 +152,18 @@ async function bootUser(u){user=u;$("authView").classList.add("hidden");$("appVi
 async function loadHousehold(){
  let r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle();
  if(r.error){alert(r.error.message);return}
- if(!r.data){const name=prompt("Enter a household name to create, or cancel to set it up later:");if(name){let x=await sb.rpc("create_household",{hname:name});if(x.error){alert(x.error.message);return}r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle()}else{return}}
- household=r.data?.households||null;if(!household)return;$("householdIdText").textContent=household.id;await loadFoods();showView("dashboard")
+ if(!r.data){
+  const code=prompt("If someone invited you, enter their household invite code. Otherwise leave this blank to create a new household.");
+  if(code&&code.trim()){
+   let joined=await sb.rpc("join_household",{invite:code.trim().toUpperCase()});
+   if(joined.error){alert("Could not join household: "+joined.error.message);return}
+   r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle();
+  }else{
+   const name=prompt("What would you like to name your household?");
+   if(name&&name.trim()){let x=await sb.rpc("create_household",{hname:name.trim()});if(x.error){alert(x.error.message);return}r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle()}else{return}
+  }
+ }
+ household=r.data?.households||null;if(!household)return;$("householdIdText").textContent=household.id;$("householdInviteCode").textContent=household.invite_code||"Unavailable";await loadFoods();showView("dashboard")
 }
 async function loadFoods(){if(!household)return;let r=await sb.from("food_items").select("*").eq("household_id",household.id).order("expiration",{ascending:true});if(r.error){alert(r.error.message);return}foods=r.data||[];renderDashboard();renderInventory();renderAlerts()}
 function daysUntil(date){if(!date)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(date+"T00:00:00");return Math.ceil((b-a)/86400000)}
@@ -234,8 +249,9 @@ async function lookupBarcode(code){
 }
 $("scanBarcode").onclick=startBarcodeScanner;$("closeBarcode").onclick=stopBarcodeScanner;$("cancelBarcode").onclick=stopBarcodeScanner;
 
-function loadSettingsUI(){$("householdName").value=household?.name||"";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
+function loadSettingsUI(){$("householdName").value=household?.name||"";$("householdInviteCode").textContent=household?.invite_code||"Unavailable";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
 $("saveHousehold").onclick=async()=>{if(!household)return;let r=await sb.from("households").update({name:$("householdName").value.trim()||"Household"}).eq("id",household.id);if(r.error)alert(r.error.message);else{household.name=$("householdName").value.trim();alert("Household settings saved.")}}
+$("copyInviteCode").onclick=async()=>{const code=household?.invite_code;if(!code){$("inviteMsg").textContent="Invite code isn't available yet. Run the household invite SQL setup first.";return}try{await navigator.clipboard.writeText(code);$("inviteMsg").textContent="Invite code copied. Share it only with people you want in your household."}catch(e){$("inviteMsg").textContent="Your invite code is "+code+". Press and hold it to copy."}}
 $("saveAlertSettings").onclick=async()=>{prefs.daysBefore=Math.max(0,Number($("daysBefore").value)||0);prefs.browserNotify=$("browserNotify").checked;savePrefs();if(prefs.browserNotify&&"Notification"in window&&Notification.permission==="default")await Notification.requestPermission();renderDashboard();renderAlerts();alert("Alert settings saved.")}
 $("saveCustomize").onclick=()=>{const parse=s=>s.split(",").map(x=>x.trim()).filter(Boolean);prefs.categories=parse($("customCategories").value)||defaults.categories;prefs.locations=parse($("customLocations").value)||defaults.locations;prefs.units=parse($("customUnits").value)||defaults.units;savePrefs();setupSelects();alert("Custom options saved.")}
 $("exportData").onclick=()=>{const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),items:foods},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="kitchen-keeper-inventory.json";a.click();URL.revokeObjectURL(a.href)}

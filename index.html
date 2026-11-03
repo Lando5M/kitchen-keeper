@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photo-choices-2026-11-03-v2">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photo-choices-2026-11-03-v3">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -175,13 +175,13 @@ async function findPhotoByName(force=false){
  const request=++onlinePhotoRequest;
  $("onlinePhotoStatus").textContent="Searching product photos…";
  try{
-  const params=new URLSearchParams({search_terms:(brand?brand+" ":"")+name,search_simple:"1",action:"process",json:"1",page_size:"30",fields:"code,product_name,brands,image_front_url,image_url,image_small_url"});
+  const params=new URLSearchParams({search_terms:(brand?brand+" ":"")+name,search_simple:"1",action:"process",json:"1",page_size:"100",fields:"code,product_name,brands,image_front_url,image_url,image_small_url"});
   const res=await fetch("https://world.openfoodfacts.org/cgi/search.pl?"+params.toString(),{headers:{Accept:"application/json"}});
   if(!res.ok)throw new Error("Search unavailable ("+res.status+")");
   const data=await res.json();if(request!==onlinePhotoRequest)return;
   const tokens=name.toLowerCase().split(/\s+/).filter(x=>x.length>2);
   const candidates=(data.products||[]).filter(p=>productImage(p)).map(p=>{const n=String(p.product_name||"").toLowerCase(),b=String(p.brands||"").toLowerCase();return {p,score:tokens.filter(t=>n.includes(t)).length*3+(brand&&b.includes(brand.toLowerCase())?3:0)}}).sort((a,b)=>b.score-a.score);
-  if(candidates.length&&candidates[0].score>=3){showPhotoChoices(candidates.filter(c=>c.score>=3).map(c=>c.p))}
+  if(candidates.length&&candidates[0].score>=3){showPhotoChoices(candidates.filter(c=>c.score>=3).map(c=>c.p));if(candidates.filter(c=>c.score>=3).length===1)$("onlinePhotoStatus").textContent="Only one matching picture is available from this search. Try a shorter product name or remove the brand to find more."}
   else $("onlinePhotoStatus").textContent="No reliable picture match found. You can still add your own photo.";
  }catch(err){if(request===onlinePhotoRequest)$("onlinePhotoStatus").textContent="Online picture search unavailable. You can still use your own photo.";console.warn("Product image search",err)}
 }
@@ -296,6 +296,7 @@ async function lookupBarcode(code){
     const brand=(product.brands||"").split(",")[0].trim();
     if(name)$("foodName").value=name;
     if(brand)$("foodBrand").value=brand;
+    if(name){findPhotoByName(true).catch(console.warn)}
     if(product.quantity&&!$("foodNotes").value.trim())$("foodNotes").value="Package: "+product.quantity;
     const cats=Array.isArray(product.categories_tags_en)?product.categories_tags_en:[];
     if(cats.length&&!$("foodCategory").value)$("foodCategory").value=cats[0].replace(/^en:/,"").replace(/-/g," ");

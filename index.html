@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="household-invites-gallery-photo-2026-10-11-v1">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photos-2026-11-03-v1">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -116,6 +116,9 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 <div><label>Expiration date</label><input id="foodExpiration" type="date"></div><div><label>Location</label><select id="foodLocation"></select></div>
 <div class="full"><label>Notes</label><textarea id="foodNotes"></textarea></div>
 <div class="full"><label>Food picture</label>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0"><button type="button" class="secondary" id="findOnlinePhoto">🌐 Find product picture online</button></div>
+<div id="onlinePhotoStatus" class="muted" aria-live="polite">Enter a food name and leave the name field, or scan a barcode, to look for a picture.</div>
+<div id="onlinePhotoPreview" style="display:none;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px"><img id="onlinePhotoImg" alt="Suggested product photo" style="width:110px;height:110px;object-fit:contain;background:white;border-radius:8px"><div id="onlinePhotoCaption" class="muted" style="margin:6px 0"></div><button type="button" class="secondary" id="discardOnlinePhoto">Don't use this picture</button></div>
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"><button type="button" class="secondary" id="chooseGallery">🖼️ Choose from gallery</button><button type="button" class="secondary" id="takePhoto">📷 Take photo</button></div>
 <input id="foodPhotoGallery" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
 <input id="foodPhotoCamera" type="file" accept="image/*" capture="environment" style="display:none">
@@ -135,7 +138,32 @@ const sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 const $=id=>document.getElementById(id);
 $("chooseGallery").onclick=()=>$("foodPhotoGallery").click();
 $("takePhoto").onclick=()=>$("foodPhotoCamera").click();
-for(const id of ["foodPhotoGallery","foodPhotoCamera"]){$(id).addEventListener("change",()=>{const f=$(id).files[0];if(f){$("foodPhotoStatus").textContent="Selected: "+f.name;$("foodPhotoGallery").value=id==="foodPhotoGallery"?$(id).value:"";if(id==="foodPhotoCamera")$("foodPhotoGallery").value="";else $("foodPhotoCamera").value="";}})}
+for(const id of ["foodPhotoGallery","foodPhotoCamera"]){$(id).addEventListener("change",()=>{const f=$(id).files[0];if(f){clearOnlinePhoto();onlinePhotoDeclined=true;$("foodPhotoStatus").textContent="Selected: "+f.name;$("foodPhotoGallery").value=id==="foodPhotoGallery"?$(id).value:"";if(id==="foodPhotoCamera")$("foodPhotoGallery").value="";else $("foodPhotoCamera").value="";}})}
+let onlinePhotoUrl=null, onlinePhotoRequest=0, onlinePhotoDeclined=false;
+function safeProductImage(value){try{const u=new URL(value);return u.protocol==="https:"&&(/(^|\.)openfoodfacts\.org$/i.test(u.hostname)||/(^|\.)openfoodfacts\.net$/i.test(u.hostname))?u.href:null}catch(e){return null}}
+function clearOnlinePhoto(){onlinePhotoUrl=null;onlinePhotoRequest++;$("onlinePhotoPreview").style.display="none";$("onlinePhotoImg").removeAttribute("src")}
+function showOnlinePhoto(url,label){const safe=safeProductImage(url);if(!safe)return false;onlinePhotoUrl=safe;$("onlinePhotoImg").src=safe;$("onlinePhotoCaption").textContent="Suggested match: "+label+" — check picture before saving.";$("onlinePhotoPreview").style.display="block";$("onlinePhotoStatus").textContent="Online picture selected. You can replace it with your own photo.";$("removePhoto").checked=false;return true}
+function productImage(p){return safeProductImage(p?.image_front_url||p?.image_url||p?.image_small_url||"")}
+async function findPhotoByName(force=false){
+ const name=$("foodName").value.trim(),brand=$("foodBrand").value.trim();
+ if(!name||name.length<3||(!force&&(onlinePhotoUrl||onlinePhotoDeclined||$("foodPhotoGallery").files.length||$("foodPhotoCamera").files.length)))return;
+ const request=++onlinePhotoRequest;
+ $("onlinePhotoStatus").textContent="Searching product photos…";
+ try{
+  const params=new URLSearchParams({search_terms:(brand?brand+" ":"")+name,search_simple:"1",action:"process",json:"1",page_size:"12",fields:"code,product_name,brands,image_front_url,image_url,image_small_url"});
+  const res=await fetch("https://world.openfoodfacts.org/cgi/search.pl?"+params.toString(),{headers:{Accept:"application/json"}});
+  if(!res.ok)throw new Error("Search unavailable ("+res.status+")");
+  const data=await res.json();if(request!==onlinePhotoRequest)return;
+  const tokens=name.toLowerCase().split(/\s+/).filter(x=>x.length>2);
+  const candidates=(data.products||[]).filter(p=>productImage(p)).map(p=>{const n=String(p.product_name||"").toLowerCase(),b=String(p.brands||"").toLowerCase();return {p,score:tokens.filter(t=>n.includes(t)).length*3+(brand&&b.includes(brand.toLowerCase())?3:0)}}).sort((a,b)=>b.score-a.score);
+  if(candidates.length&&candidates[0].score>=3){showOnlinePhoto(productImage(candidates[0].p),[candidates[0].p.product_name,candidates[0].p.brands].filter(Boolean).join(" — "))}
+  else $("onlinePhotoStatus").textContent="No reliable picture match found. You can still add your own photo.";
+ }catch(err){if(request===onlinePhotoRequest)$("onlinePhotoStatus").textContent="Online picture search unavailable. You can still use your own photo.";console.warn("Product image search",err)}
+}
+$("findOnlinePhoto").onclick=()=>{onlinePhotoDeclined=false;clearOnlinePhoto();findPhotoByName(true)};
+$("discardOnlinePhoto").onclick=()=>{onlinePhotoDeclined=true;clearOnlinePhoto();$("onlinePhotoStatus").textContent="Online picture skipped."};
+$("foodName").addEventListener("change",()=>findPhotoByName());
+$("foodBrand").addEventListener("change",()=>findPhotoByName());
 let mode="signin", user=null, household=null, foods=[], editingId=null;
 const defaults={categories:["Produce","Dairy","Meat","Frozen","Pantry","Snacks","Beverages","Other"],locations:["Pantry","Refrigerator","Freezer","Cabinet","Other"],units:["each","can","box","bag","bottle","jar","lb","oz","g","kg","gallon","quart","liter"]};
 let prefs={daysBefore:7,browserNotify:false,categories:defaults.categories.slice(),locations:defaults.locations.slice(),units:defaults.units.slice()};
@@ -181,10 +209,10 @@ function foodHtml(f){const pic=f.photo_data?'<img src="'+escapeHtml(f.photo_data
 function renderInventory(){let q=($("search")?.value||"").toLowerCase(),cat=$("filterCategory")?.value||"",loc=$("filterLocation")?.value||"",sort=$("sortBy")?.value||"expiration";let arr=foods.filter(f=>(!q||[f.name,f.brand,f.notes].join(" ").toLowerCase().includes(q))&&(!cat||cat==="All categories"||f.category===cat)&&(!loc||loc==="All locations"||f.location===loc));arr.sort((a,b)=>{if(sort==="name")return a.name.localeCompare(b.name);if(sort==="quantity")return Number(a.quantity)-Number(b.quantity);if(sort==="created_at")return String(b.created_at).localeCompare(String(a.created_at));return String(a.expiration||"9999").localeCompare(String(b.expiration||"9999"))});$("inventoryList").innerHTML=arr.map(foodHtml).join("")||'<div class="empty">No food items found.</div>'}
 function renderAlerts(){const bad=foods.filter(f=>{const a=alertFlags(f);return a.low||a.expired||a.soon;});$("alertExpired").textContent=foods.filter(f=>alertFlags(f).expired).length;$("alertSoon").textContent=foods.filter(f=>alertFlags(f).soon).length;$("alertLow").textContent=foods.filter(f=>alertFlags(f).low).length;$("alertList").innerHTML=bad.map(foodHtml).join("")||'<div class="empty">No alerts.</div>'}
 $("search").oninput=renderInventory;$("filterCategory").onchange=renderInventory;$("filterLocation").onchange=renderInventory;$("sortBy").onchange=renderInventory;
-function openFood(id){editingId=id||null;$("foodModalTitle").textContent=id?"Edit Food":"Add Food";$("foodForm").reset();$("removePhoto").checked=false;$("foodId").value=id||"";if(id){const f=foods.find(x=>x.id===id);if(!f)return;$("foodName").value=f.name||"";$("foodBrand").value=f.brand||"";$("foodCategory").value=f.category||prefs.categories[0];$("foodQty").value=f.quantity;$("foodUnit").value=f.unit||prefs.units[0];$("foodLow").value=f.low_at??1;$("foodDesired").value=f.desired_stock??0;$("foodExpiration").value=f.expiration||"";$("foodLocation").value=f.location||prefs.locations[0];$("foodNotes").value=f.notes||""}$("foodModal").classList.remove("hidden")}
+function openFood(id){editingId=id||null;$("foodModalTitle").textContent=id?"Edit Food":"Add Food";$("foodForm").reset();clearOnlinePhoto();onlinePhotoDeclined=!!id;$("onlinePhotoStatus").textContent=id?"Existing picture is preserved. Click Find product picture online to replace it.":"Enter a food name and leave the field, or scan a barcode, to look for a picture.";$("foodPhotoStatus").textContent="No new picture selected.";$("removePhoto").checked=false;$("foodId").value=id||"";if(id){const f=foods.find(x=>x.id===id);if(!f)return;$("foodName").value=f.name||"";$("foodBrand").value=f.brand||"";$("foodCategory").value=f.category||prefs.categories[0];$("foodQty").value=f.quantity;$("foodUnit").value=f.unit||prefs.units[0];$("foodLow").value=f.low_at??1;$("foodDesired").value=f.desired_stock??0;$("foodExpiration").value=f.expiration||"";$("foodLocation").value=f.location||prefs.locations[0];$("foodNotes").value=f.notes||""}$("foodModal").classList.remove("hidden")}
 window.editFood=id=>openFood(id);window.deleteFood=async id=>{if(!confirm("Delete this food item?"))return;let r=await sb.from("food_items").delete().eq("id",id).eq("household_id",household.id);if(r.error){alert(r.error.message);return}await loadFoods()}
 $("addFood").onclick=()=>openFood();$("addFoodTop").onclick=()=>openFood();$("closeFood").onclick=()=>$("foodModal").classList.add("hidden");$("cancelFood").onclick=()=>$("foodModal").classList.add("hidden");
-$("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$("foodPhotoGallery").files[0]||$("foodPhotoCamera").files[0];if(file){photo=await new Promise((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);const cleanup=()=>{try{URL.revokeObjectURL(url)}catch(e){}};img.onload=()=>{try{const max=1000,scale=Math.min(1,max/img.width,max/img.height),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});if(!ctx)throw new Error("Your browser could not create an image canvas.");ctx.drawImage(img,0,0,w,h);const out=c.toDataURL("image/jpeg",.72);cleanup();if(!out||out.length<100)throw new Error("The picture could not be converted.");resolve(out)}catch(err){cleanup();reject(err)}};img.onerror=()=>{cleanup();reject(new Error("Your phone returned a picture format that Chrome could not process. Please choose the photo from your gallery instead of taking it directly, then try again."))};img.src=url})}let row={household_id:household.id,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),desired_stock:Number($("foodDesired").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if($("removePhoto").checked)row.photo_data=null;else if(photo)row.photo_data=photo;let r=editingId?await sb.from("food_items").update(row).eq("id",editingId).eq("household_id",household.id):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
+$("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$("foodPhotoGallery").files[0]||$("foodPhotoCamera").files[0];if(file){photo=await new Promise((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);const cleanup=()=>{try{URL.revokeObjectURL(url)}catch(e){}};img.onload=()=>{try{const max=1000,scale=Math.min(1,max/img.width,max/img.height),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});if(!ctx)throw new Error("Your browser could not create an image canvas.");ctx.drawImage(img,0,0,w,h);const out=c.toDataURL("image/jpeg",.72);cleanup();if(!out||out.length<100)throw new Error("The picture could not be converted.");resolve(out)}catch(err){cleanup();reject(err)}};img.onerror=()=>{cleanup();reject(new Error("Your phone returned a picture format that Chrome could not process. Please choose the photo from your gallery instead of taking it directly, then try again."))};img.src=url})}let row={household_id:household.id,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),desired_stock:Number($("foodDesired").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if($("removePhoto").checked)row.photo_data=null;else if(photo)row.photo_data=photo;else if(onlinePhotoUrl)row.photo_data=onlinePhotoUrl;let r=editingId?await sb.from("food_items").update(row).eq("id",editingId).eq("household_id",household.id):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
 
 let barcodeStream=null, barcodeTimer=null;
 function stopBarcodeScanner(){if(barcodeTimer){clearInterval(barcodeTimer);barcodeTimer=null}if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null}const v=$("barcodeVideo");if(v)v.srcObject=null;$("barcodeModal").classList.add("hidden")}
@@ -228,7 +256,7 @@ async function startBarcodeScanner(){
 async function lookupBarcode(code){
   $("barcodeStatus").textContent="Looking up barcode "+code+"…";
   try{
-    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_en,brands,categories_tags_en,quantity,product_quantity";
+    const url="https://world.openfoodfacts.org/api/v2/product/"+encodeURIComponent(code)+".json?fields=product_name,product_name_en,brands,categories_tags_en,quantity,product_quantity,image_front_url,image_url,image_small_url";
     const res=await fetch(url,{headers:{"Accept":"application/json"}});
     if(!res.ok)throw new Error("Barcode lookup failed ("+res.status+")");
     const data=await res.json();
@@ -238,6 +266,7 @@ async function lookupBarcode(code){
       return;
     }
     const product=data.product||{};
+    const img=productImage(product);if(img){clearOnlinePhoto();onlinePhotoDeclined=false;showOnlinePhoto(img,product.product_name||product.product_name_en||code)}else $("onlinePhotoStatus").textContent="No photo available for this barcode. Try searching by name.";
     const name=(product.product_name||product.product_name_en||"").trim();
     const brand=(product.brands||"").split(",")[0].trim();
     if(name)$("foodName").value=name;

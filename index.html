@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photo-choices-2026-11-03-v3">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="user-color-themes-2026-11-03-v4">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -27,6 +27,7 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 .auth{min-height:100vh;display:grid;place-items:center;padding:20px}.auth-box{width:min(440px,100%);background:#fff;border:1px solid var(--line);border-radius:15px;padding:24px}.tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{flex:1;padding:10px;border:1px solid var(--line);background:#fff;border-radius:8px}.tabs .active{background:var(--green);color:#fff}
 .notice{padding:10px;border-radius:8px;background:#eef5f0;margin:10px 0}.error{background:#fff0ef;color:var(--danger)}
 @media(max-width:700px){.grid{grid-template-columns:1fr 1fr}.form-grid{grid-template-columns:1fr}.full{grid-column:auto}.item{grid-template-columns:1fr}.actions{justify-content:flex-start}}
+.theme-swatches{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0}.theme-swatch{width:42px;height:42px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #aab2bb;cursor:pointer}.theme-swatch[aria-pressed="true"]{box-shadow:0 0 0 3px var(--text)}.theme-color-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.theme-color-row input[type=color]{width:72px;height:45px;padding:3px}.theme-preview{border-radius:10px;background:var(--bg);padding:14px;border:1px solid var(--line)}.theme-preview-chip{display:inline-block;background:var(--green);color:white;border-radius:7px;padding:8px 12px}
 </style>
 </head>
 <body>
@@ -97,6 +98,16 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
   <label>Locations (comma separated)</label><input id="customLocations">
   <label>Units (comma separated)</label><input id="customUnits">
   <button class="primary" id="saveCustomize" style="margin-top:10px">Save custom options</button>
+ </div>
+ <div class="card" style="margin-top:14px">
+  <h3>App colors</h3>
+  <p class="muted">Choose a color for your Kitchen Keeper app. Your selection is saved on this device, so each household member can pick their own.</p>
+  <div class="theme-swatches" id="themeSwatches" aria-label="Preset app colors"></div>
+  <label for="themeColorPicker">Or choose any color</label>
+  <div class="theme-color-row"><input id="themeColorPicker" type="color" value="#1f6f4a" aria-label="Custom app color"><span id="themeColorHex" class="muted">#1F6F4A</span></div>
+  <div class="theme-preview" style="margin-top:12px"><span class="theme-preview-chip">Preview button</span> <span class="muted">Your selected color appears throughout the app.</span></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="primary" id="saveTheme" type="button">Save app colors</button><button class="secondary" id="resetTheme" type="button">Reset to original green</button></div>
+  <p class="muted" id="themeStatus" aria-live="polite"></p>
  </div>
  <div class="card" style="margin-top:14px"><h3>Backup</h3><p class="muted">Export your household inventory to a JSON file, or import a previous export.</p>
   <button class="secondary" id="exportData">Export inventory</button>
@@ -196,6 +207,32 @@ let prefs={daysBefore:7,browserNotify:false,categories:defaults.categories.slice
 function msg(el,text,error=false){el.innerHTML=text?'<div class="notice '+(error?'error':'')+'">'+text+'</div>':""}
 function options(sel,arr,keep){const val=sel.value;sel.innerHTML=arr.map(x=>'<option>'+escapeHtml(x)+'</option>').join("");if(keep&&arr.includes(val))sel.value=val}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+// Device-specific theme: no database changes or shared-household settings.
+const THEME_DEFAULT="#1f6f4a";
+const THEME_PRESETS=[["Blue","#2563eb"],["Navy","#1e3a8a"],["Purple","#7c3aed"],["Pink","#be185d"],["Red","#b91c1c"],["Orange","#c2410c"],["Teal","#0f766e"],["Charcoal","#374151"],["Green",THEME_DEFAULT]];
+function validThemeColor(value){return typeof value==="string"&&/^#[0-9a-f]{6}$/i.test(value)}
+function applyThemeColor(color){
+ if(!validThemeColor(color))return;
+ document.documentElement.style.setProperty("--green",color);
+ const meta=document.querySelector('meta[name="theme-color"]');if(meta)meta.content=color;
+ const picker=document.getElementById("themeColorPicker");if(picker)picker.value=color;
+ const hex=document.getElementById("themeColorHex");if(hex)hex.textContent=color.toUpperCase();
+ document.querySelectorAll("#themeSwatches button").forEach(btn=>btn.setAttribute("aria-pressed",String(btn.dataset.color.toLowerCase()===color.toLowerCase())));
+}
+function initThemeSettings(){
+ const swatches=document.getElementById("themeSwatches");
+ for(const [name,color] of THEME_PRESETS){
+  const button=document.createElement("button");button.type="button";button.className="theme-swatch";button.dataset.color=color;button.title=name;button.setAttribute("aria-label",name);button.style.background=color;
+  button.addEventListener("click",()=>{applyThemeColor(color);document.getElementById("themeStatus").textContent="Previewing "+name+". Tap Save app colors to keep it."});
+  swatches.append(button);
+ }
+ const stored=localStorage.getItem("kk_theme_color");
+ applyThemeColor(validThemeColor(stored)?stored:THEME_DEFAULT);
+ document.getElementById("themeColorPicker").addEventListener("input",e=>{applyThemeColor(e.target.value);document.getElementById("themeStatus").textContent="Previewing custom color. Tap Save app colors to keep it."});
+ document.getElementById("saveTheme").addEventListener("click",()=>{const color=document.getElementById("themeColorPicker").value;localStorage.setItem("kk_theme_color",color);applyThemeColor(color);document.getElementById("themeStatus").textContent="App color saved on this device."});
+ document.getElementById("resetTheme").addEventListener("click",()=>{localStorage.removeItem("kk_theme_color");applyThemeColor(THEME_DEFAULT);document.getElementById("themeStatus").textContent="Original green restored on this device."});
+}
+initThemeSettings();
 function loadPrefs(){try{const p=JSON.parse(localStorage.getItem("kk_prefs")||"{}");prefs={...prefs,...p}}catch(e){}}
 function savePrefs(){localStorage.setItem("kk_prefs",JSON.stringify(prefs))}
 function setupSelects(){options($("foodCategory"),prefs.categories);options($("foodUnit"),prefs.units);options($("foodLocation"),prefs.locations);options($("filterCategory"),["All categories",...prefs.categories]);options($("filterLocation"),["All locations",...prefs.locations])}

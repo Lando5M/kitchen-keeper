@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photos-2026-11-03-v1">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="online-photo-choices-2026-11-03-v2">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -116,9 +116,9 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 <div><label>Expiration date</label><input id="foodExpiration" type="date"></div><div><label>Location</label><select id="foodLocation"></select></div>
 <div class="full"><label>Notes</label><textarea id="foodNotes"></textarea></div>
 <div class="full"><label>Food picture</label>
-<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0"><button type="button" class="secondary" id="findOnlinePhoto">🌐 Find product picture online</button></div>
+<div style="display:flex;flex-wrap:wrap;gap:8px;margin:6px 0"><button type="button" class="secondary" id="findOnlinePhoto">🌐 Find more picture options online</button></div>
 <div id="onlinePhotoStatus" class="muted" aria-live="polite">Enter a food name and leave the name field, or scan a barcode, to look for a picture.</div>
-<div id="onlinePhotoPreview" style="display:none;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px"><img id="onlinePhotoImg" alt="Suggested product photo" style="width:110px;height:110px;object-fit:contain;background:white;border-radius:8px"><div id="onlinePhotoCaption" class="muted" style="margin:6px 0"></div><button type="button" class="secondary" id="discardOnlinePhoto">Don't use this picture</button></div>
+<div id="onlinePhotoChoices" style="display:none;margin:10px 0"><div class="muted" style="margin-bottom:6px">Choose a product picture (tap one):</div><div id="onlinePhotoChoicesGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(115px,1fr));gap:9px"></div></div><div id="onlinePhotoPreview" style="display:none;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px"><img id="onlinePhotoImg" alt="Suggested product photo" style="width:110px;height:110px;object-fit:contain;background:white;border-radius:8px"><div id="onlinePhotoCaption" class="muted" style="margin:6px 0"></div><button type="button" class="secondary" id="discardOnlinePhoto">Don't use this picture</button></div>
 <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:6px"><button type="button" class="secondary" id="chooseGallery">🖼️ Choose from gallery</button><button type="button" class="secondary" id="takePhoto">📷 Take photo</button></div>
 <input id="foodPhotoGallery" type="file" accept="image/*,.jpg,.jpeg,.png,.webp,.heic,.heif" style="display:none">
 <input id="foodPhotoCamera" type="file" accept="image/*" capture="environment" style="display:none">
@@ -141,8 +141,33 @@ $("takePhoto").onclick=()=>$("foodPhotoCamera").click();
 for(const id of ["foodPhotoGallery","foodPhotoCamera"]){$(id).addEventListener("change",()=>{const f=$(id).files[0];if(f){clearOnlinePhoto();onlinePhotoDeclined=true;$("foodPhotoStatus").textContent="Selected: "+f.name;$("foodPhotoGallery").value=id==="foodPhotoGallery"?$(id).value:"";if(id==="foodPhotoCamera")$("foodPhotoGallery").value="";else $("foodPhotoCamera").value="";}})}
 let onlinePhotoUrl=null, onlinePhotoRequest=0, onlinePhotoDeclined=false;
 function safeProductImage(value){try{const u=new URL(value);return u.protocol==="https:"&&(/(^|\.)openfoodfacts\.org$/i.test(u.hostname)||/(^|\.)openfoodfacts\.net$/i.test(u.hostname))?u.href:null}catch(e){return null}}
-function clearOnlinePhoto(){onlinePhotoUrl=null;onlinePhotoRequest++;$("onlinePhotoPreview").style.display="none";$("onlinePhotoImg").removeAttribute("src")}
+function clearOnlinePhoto(){onlinePhotoUrl=null;onlinePhotoRequest++;$("onlinePhotoPreview").style.display="none";$("onlinePhotoChoices").style.display="none";$("onlinePhotoChoicesGrid").replaceChildren();$("onlinePhotoImg").removeAttribute("src")}
 function showOnlinePhoto(url,label){const safe=safeProductImage(url);if(!safe)return false;onlinePhotoUrl=safe;$("onlinePhotoImg").src=safe;$("onlinePhotoCaption").textContent="Suggested match: "+label+" — check picture before saving.";$("onlinePhotoPreview").style.display="block";$("onlinePhotoStatus").textContent="Online picture selected. You can replace it with your own photo.";$("removePhoto").checked=false;return true}
+function showPhotoChoices(products,preferredUrl=null){
+ const grid=$("onlinePhotoChoicesGrid");grid.replaceChildren();
+ const seen=new Set(),choices=[];
+ for(const p of products){
+  const url=productImage(p);if(!url||seen.has(url))continue;
+  seen.add(url);choices.push({url,label:[p.product_name,p.brands].filter(Boolean).join(" — ")||"Product picture"});
+  if(choices.length===8)break;
+ }
+ if(preferredUrl&&!seen.has(preferredUrl))choices.unshift({url:preferredUrl,label:"Barcode match"});
+ if(!choices.length){$("onlinePhotoChoices").style.display="none";return}
+ for(const choice of choices){
+  const btn=document.createElement("button");btn.type="button";btn.className="secondary";
+  btn.style.cssText="display:flex;flex-direction:column;align-items:center;gap:5px;padding:7px;min-width:0;white-space:normal;text-align:center";
+  const img=document.createElement("img");img.src=choice.url;img.alt=choice.label;img.loading="lazy";img.style.cssText="width:100%;height:95px;object-fit:contain;background:white;border-radius:6px";
+  const caption=document.createElement("span");caption.textContent=choice.label;caption.style.cssText="font-size:11px;overflow-wrap:anywhere";
+  btn.append(img,caption);
+  btn.onclick=()=>{showOnlinePhoto(choice.url,choice.label);for(const b of grid.children)b.style.outline="";btn.style.outline="3px solid #2a8d6e"};
+  grid.append(btn);
+ }
+ $("onlinePhotoChoices").style.display="block";
+ const selected=choices.find(c=>c.url===preferredUrl)||choices[0];
+ showOnlinePhoto(selected.url,selected.label);
+ const selectedIndex=choices.indexOf(selected);grid.children[selectedIndex].style.outline="3px solid #2a8d6e";
+ $("onlinePhotoStatus").textContent=choices.length+" picture option(s) found. Tap the one you want to save.";
+}
 function productImage(p){return safeProductImage(p?.image_front_url||p?.image_url||p?.image_small_url||"")}
 async function findPhotoByName(force=false){
  const name=$("foodName").value.trim(),brand=$("foodBrand").value.trim();
@@ -150,13 +175,13 @@ async function findPhotoByName(force=false){
  const request=++onlinePhotoRequest;
  $("onlinePhotoStatus").textContent="Searching product photos…";
  try{
-  const params=new URLSearchParams({search_terms:(brand?brand+" ":"")+name,search_simple:"1",action:"process",json:"1",page_size:"12",fields:"code,product_name,brands,image_front_url,image_url,image_small_url"});
+  const params=new URLSearchParams({search_terms:(brand?brand+" ":"")+name,search_simple:"1",action:"process",json:"1",page_size:"30",fields:"code,product_name,brands,image_front_url,image_url,image_small_url"});
   const res=await fetch("https://world.openfoodfacts.org/cgi/search.pl?"+params.toString(),{headers:{Accept:"application/json"}});
   if(!res.ok)throw new Error("Search unavailable ("+res.status+")");
   const data=await res.json();if(request!==onlinePhotoRequest)return;
   const tokens=name.toLowerCase().split(/\s+/).filter(x=>x.length>2);
   const candidates=(data.products||[]).filter(p=>productImage(p)).map(p=>{const n=String(p.product_name||"").toLowerCase(),b=String(p.brands||"").toLowerCase();return {p,score:tokens.filter(t=>n.includes(t)).length*3+(brand&&b.includes(brand.toLowerCase())?3:0)}}).sort((a,b)=>b.score-a.score);
-  if(candidates.length&&candidates[0].score>=3){showOnlinePhoto(productImage(candidates[0].p),[candidates[0].p.product_name,candidates[0].p.brands].filter(Boolean).join(" — "))}
+  if(candidates.length&&candidates[0].score>=3){showPhotoChoices(candidates.filter(c=>c.score>=3).map(c=>c.p))}
   else $("onlinePhotoStatus").textContent="No reliable picture match found. You can still add your own photo.";
  }catch(err){if(request===onlinePhotoRequest)$("onlinePhotoStatus").textContent="Online picture search unavailable. You can still use your own photo.";console.warn("Product image search",err)}
 }
@@ -266,7 +291,7 @@ async function lookupBarcode(code){
       return;
     }
     const product=data.product||{};
-    const img=productImage(product);if(img){clearOnlinePhoto();onlinePhotoDeclined=false;showOnlinePhoto(img,product.product_name||product.product_name_en||code)}else $("onlinePhotoStatus").textContent="No photo available for this barcode. Try searching by name.";
+    const img=productImage(product);if(img){clearOnlinePhoto();onlinePhotoDeclined=false;showPhotoChoices([product])}else $("onlinePhotoStatus").textContent="No photo available for this barcode. Try searching by name.";
     const name=(product.product_name||product.product_name_en||"").trim();
     const brand=(product.brands||"").split(",")[0].trim();
     if(name)$("foodName").value=name;

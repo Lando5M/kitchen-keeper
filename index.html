@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#1f6f4a">
 <link rel="manifest" href="manifest.webmanifest">
-<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="user-color-themes-2026-11-03-v4">
+<title>Kitchen Keeper</title><meta name="kitchen-keeper-version" content="household-switching-2026-11-08-v1">
 <style>
 :root{--green:#1f6f4a;--bg:#f5f7f5;--card:#fff;--text:#1e2923;--muted:#68746d;--line:#dfe6e1;--danger:#b42318;--warn:#a15c00}
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
@@ -79,7 +79,13 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 <section id="settings" class="view hidden">
  <h2>Settings</h2>
  <div class="card">
-  <h3>Household</h3><div class="muted">Household ID</div><p id="householdIdText">—</p>
+  <h3>Household</h3>
+  <label for="householdSwitcher">Active household</label><select id="householdSwitcher"></select>
+  <p class="muted">Choose which household inventory you want to view. Your existing households and items will be kept.</p>
+  <label for="joinHouseholdCode">Join another household with an invite code</label><input id="joinHouseholdCode" placeholder="Enter invite code" autocomplete="off">
+  <button class="secondary" id="joinHouseholdBtn" type="button" style="margin-top:8px">Join household</button>
+  <p id="joinHouseholdMsg" class="muted" role="status"></p>
+  <div class="muted">Household ID</div><p id="householdIdText">—</p>
   <label>Household name</label><input id="householdName">
   <button class="primary" id="saveHousehold" style="margin-top:10px">Save household settings</button>
   <hr style="border:0;border-top:1px solid var(--line);margin:18px 0">
@@ -245,22 +251,67 @@ $("authForm").onsubmit=async e=>{e.preventDefault();const email=$("authEmail").v
 $("signOut").onclick=async()=>{await sb.auth.signOut();location.reload()}
 
 async function bootUser(u){user=u;$("authView").classList.add("hidden");$("appView").classList.remove("hidden");loadPrefs();setupSelects();await loadHousehold()}
-async function loadHousehold(){
- let r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle();
- if(r.error){alert(r.error.message);return}
- if(!r.data){
-  const code=prompt("If someone invited you, enter their household invite code. Otherwise leave this blank to create a new household.");
-  if(code&&code.trim()){
-   let joined=await sb.rpc("join_household",{invite:code.trim().toUpperCase()});
-   if(joined.error){alert("Could not join household: "+joined.error.message);return}
-   r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle();
-  }else{
-   const name=prompt("What would you like to name your household?");
-   if(name&&name.trim()){let x=await sb.rpc("create_household",{hname:name.trim()});if(x.error){alert(x.error.message);return}r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id).limit(1).maybeSingle()}else{return}
-  }
- }
- household=r.data?.households||null;if(!household)return;$("householdIdText").textContent=household.id;$("householdInviteCode").textContent=household.invite_code||"Unavailable";await loadFoods();showView("dashboard")
+const selectedHouseholdKey=()=>"kk_active_household_"+user.id;
+let availableHouseholds=[];
+async function fetchHouseholds(){
+ const r=await sb.from("household_members").select("household_id,households(*)").eq("user_id",user.id);
+ if(r.error)throw r.error;
+ availableHouseholds=(r.data||[]).map(row=>row.households).filter(Boolean);
+ return availableHouseholds;
 }
+async function activateHousehold(id){
+ const chosen=availableHouseholds.find(h=>h.id===id);
+ if(!chosen)throw new Error("This household isn't available to your account.");
+ household=chosen;
+ localStorage.setItem(selectedHouseholdKey(),chosen.id);
+ foods=[];
+ $("householdIdText").textContent=household.id;
+ $("householdInviteCode").textContent=household.invite_code||"Unavailable";
+ await loadFoods();
+ loadSettingsUI();
+ showView("dashboard");
+}
+async function loadHousehold(){
+ try{
+  await fetchHouseholds();
+  if(!availableHouseholds.length){
+   const code=prompt("If someone invited you, enter their household invite code. Otherwise leave this blank to create a new household.");
+   if(code&&code.trim()){
+    const joined=await sb.rpc("join_household",{invite:code.trim().toUpperCase()});
+    if(joined.error)throw joined.error;
+    await fetchHouseholds();
+    if(!availableHouseholds.length)throw new Error("Invite accepted but the household is not visible. Check membership permissions.");
+    await activateHousehold(joined.data||availableHouseholds[0].id);return;
+   }
+   const name=prompt("What would you like to name your household?");
+   if(!name||!name.trim())return;
+   const created=await sb.rpc("create_household",{hname:name.trim()});
+   if(created.error)throw created.error;
+   await fetchHouseholds();
+  }
+  const saved=localStorage.getItem(selectedHouseholdKey());
+  await activateHousehold(availableHouseholds.some(h=>h.id===saved)?saved:availableHouseholds[0].id);
+ }catch(err){alert("Could not load household: "+err.message)}
+}
+$("householdSwitcher").onchange=async e=>{
+ try{await activateHousehold(e.target.value)}catch(err){$("joinHouseholdMsg").textContent=err.message}
+};
+$("joinHouseholdBtn").onclick=async()=>{
+ const code=$("joinHouseholdCode").value.trim();
+ const status=$("joinHouseholdMsg");
+ if(!code){status.textContent="Enter an invite code first.";return}
+ const btn=$("joinHouseholdBtn");btn.disabled=true;status.textContent="Joining household…";
+ try{
+  const joined=await sb.rpc("join_household",{invite:code.toUpperCase()});
+  if(joined.error)throw joined.error;
+  await fetchHouseholds();
+  if(!availableHouseholds.some(h=>h.id===joined.data))throw new Error("Membership was added but household details are not accessible. Please check Supabase permissions.");
+  await activateHousehold(joined.data);
+  $("joinHouseholdCode").value="";
+  status.textContent="Joined successfully. You are now viewing the invited household.";
+ }catch(err){status.textContent="Could not join: "+err.message}
+ finally{btn.disabled=false}
+};
 async function loadFoods(){if(!household)return;let r=await sb.from("food_items").select("*").eq("household_id",household.id).order("expiration",{ascending:true});if(r.error){alert(r.error.message);return}foods=r.data||[];renderDashboard();renderInventory();renderAlerts()}
 function daysUntil(date){if(!date)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(date+"T00:00:00");return Math.ceil((b-a)/86400000)}
 function alertFlags(f){const d=daysUntil(f.expiration);const qty=Number(f.quantity);const lowAt=Number(f.low_at);const low=Number.isFinite(qty)&&Number.isFinite(lowAt)&&qty<=lowAt;return {low,expired:d!==null&&d<0,soon:d!==null&&d>=0&&d<=Number(prefs.daysBefore)}}
@@ -347,8 +398,8 @@ async function lookupBarcode(code){
 }
 $("scanBarcode").onclick=startBarcodeScanner;$("closeBarcode").onclick=stopBarcodeScanner;$("cancelBarcode").onclick=stopBarcodeScanner;
 
-function loadSettingsUI(){$("householdName").value=household?.name||"";$("householdInviteCode").textContent=household?.invite_code||"Unavailable";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
-$("saveHousehold").onclick=async()=>{if(!household)return;let r=await sb.from("households").update({name:$("householdName").value.trim()||"Household"}).eq("id",household.id);if(r.error)alert(r.error.message);else{household.name=$("householdName").value.trim();alert("Household settings saved.")}}
+function loadSettingsUI(){const selector=$("householdSwitcher");selector.replaceChildren();for(const h of availableHouseholds){const option=document.createElement("option");option.value=h.id;option.textContent=h.name||"Household";selector.append(option)}if(household)selector.value=household.id;$("householdName").value=household?.name||"";$("householdInviteCode").textContent=household?.invite_code||"Unavailable";$("daysBefore").value=prefs.daysBefore;$("browserNotify").checked=prefs.browserNotify;$("customCategories").value=prefs.categories.join(", ");$("customLocations").value=prefs.locations.join(", ");$("customUnits").value=prefs.units.join(", ")}
+$("saveHousehold").onclick=async()=>{if(!household)return;let r=await sb.from("households").update({name:$("householdName").value.trim()||"Household"}).eq("id",household.id);if(r.error)alert(r.error.message);else{household.name=$("householdName").value.trim();loadSettingsUI();alert("Household settings saved.")}}
 $("copyInviteCode").onclick=async()=>{const code=household?.invite_code;if(!code){$("inviteMsg").textContent="Invite code isn't available yet. Run the household invite SQL setup first.";return}try{await navigator.clipboard.writeText(code);$("inviteMsg").textContent="Invite code copied. Share it only with people you want in your household."}catch(e){$("inviteMsg").textContent="Your invite code is "+code+". Press and hold it to copy."}}
 $("saveAlertSettings").onclick=async()=>{prefs.daysBefore=Math.max(0,Number($("daysBefore").value)||0);prefs.browserNotify=$("browserNotify").checked;savePrefs();if(prefs.browserNotify&&"Notification"in window&&Notification.permission==="default")await Notification.requestPermission();renderDashboard();renderAlerts();alert("Alert settings saved.")}
 $("saveCustomize").onclick=()=>{const parse=s=>s.split(",").map(x=>x.trim()).filter(Boolean);prefs.categories=parse($("customCategories").value)||defaults.categories;prefs.locations=parse($("customLocations").value)||defaults.locations;prefs.units=parse($("customUnits").value)||defaults.units;savePrefs();setupSelects();alert("Custom options saved.")}

@@ -48,6 +48,7 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
 <nav>
  <button data-view="dashboard" class="active">Dashboard</button>
  <button data-view="inventory">Inventory</button>
+ <button data-view="catalog">Food database</button>
  <button data-view="alerts">Alerts</button>
  <button data-view="settings">Settings</button>
 </nav>
@@ -68,6 +69,11 @@ label{display:block;font-weight:650;font-size:14px;margin:10px 0 5px}.primary{ba
  <div id="inventoryList" class="list"></div>
 </section>
 
+<section id="catalog" class="view hidden">
+ <h2>Food database</h2><p class="muted">Reusable foods for this household. Deleting inventory keeps these details and pictures saved. When adding a food back, enter its current quantity and new expiration date.</p>
+ <div class="toolbar"><input id="catalogSearch" aria-label="Search saved foods" placeholder="Search saved foods, brands or categories…"><button class="secondary" type="button" id="refreshCatalog">Refresh</button></div>
+ <p id="catalogMessage" class="muted" role="status"></p><div id="catalogList" class="list"></div>
+</section>
 <section id="alerts" class="view hidden">
  <h2>Alerts</h2><div class="grid">
   <div class="card"><div class="muted">Expired</div><div class="stat" id="alertExpired">0</div></div>
@@ -156,9 +162,10 @@ const $=id=>document.getElementById(id);
 $("chooseGallery").onclick=()=>$("foodPhotoGallery").click();
 $("takePhoto").onclick=()=>$("foodPhotoCamera").click();
 for(const id of ["foodPhotoGallery","foodPhotoCamera"]){$(id).addEventListener("change",()=>{const f=$(id).files[0];if(f){clearOnlinePhoto();onlinePhotoDeclined=true;$("foodPhotoStatus").textContent="Selected: "+f.name;$("foodPhotoGallery").value=id==="foodPhotoGallery"?$(id).value:"";if(id==="foodPhotoCamera")$("foodPhotoGallery").value="";else $("foodPhotoCamera").value="";}})}
+let foodCatalog=[], catalogRequest=0, catalogPhoto=null, catalogHousehold=null;
 let onlinePhotoUrl=null, onlinePhotoRequest=0, onlinePhotoDeclined=false;
 function safeProductImage(value){try{const u=new URL(value);return u.protocol==="https:"&&(/(^|\.)openfoodfacts\.org$/i.test(u.hostname)||/(^|\.)openfoodfacts\.net$/i.test(u.hostname))?u.href:null}catch(e){return null}}
-function clearOnlinePhoto(){onlinePhotoUrl=null;onlinePhotoRequest++;$("onlinePhotoPreview").style.display="none";$("onlinePhotoChoices").style.display="none";$("onlinePhotoChoicesGrid").replaceChildren();$("onlinePhotoImg").removeAttribute("src")}
+function clearOnlinePhoto(){catalogPhoto=null;onlinePhotoUrl=null;onlinePhotoRequest++;$("onlinePhotoPreview").style.display="none";$("onlinePhotoChoices").style.display="none";$("onlinePhotoChoicesGrid").replaceChildren();$("onlinePhotoImg").removeAttribute("src")}
 function showOnlinePhoto(url,label){const safe=safeProductImage(url);if(!safe)return false;onlinePhotoUrl=safe;$("onlinePhotoImg").src=safe;$("onlinePhotoCaption").textContent="Suggested match: "+label+" — check picture before saving.";$("onlinePhotoPreview").style.display="block";$("onlinePhotoStatus").textContent="Online picture selected. You can replace it with your own photo.";$("removePhoto").checked=false;return true}
 function showPhotoChoices(products,preferredUrl=null){
  const grid=$("onlinePhotoChoicesGrid");grid.replaceChildren();
@@ -242,7 +249,7 @@ initThemeSettings();
 function loadPrefs(){try{const p=JSON.parse(localStorage.getItem("kk_prefs")||"{}");prefs={...prefs,...p}}catch(e){}}
 function savePrefs(){localStorage.setItem("kk_prefs",JSON.stringify(prefs))}
 function setupSelects(){options($("foodCategory"),prefs.categories);options($("foodUnit"),prefs.units);options($("foodLocation"),prefs.locations);options($("filterCategory"),["All categories",...prefs.categories]);options($("filterLocation"),["All locations",...prefs.locations])}
-function showView(name){document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));$(name).classList.remove("hidden");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="inventory")renderInventory();if(name==="alerts")renderAlerts();if(name==="dashboard")renderDashboard();if(name==="settings")loadSettingsUI()}
+function showView(name){document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));$(name).classList.remove("hidden");document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===name));if(name==="inventory")renderInventory();if(name==="alerts")renderAlerts();if(name==="dashboard")renderDashboard();if(name==="catalog")loadFoodCatalog();if(name==="settings")loadSettingsUI()}
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
 
 $("tabSignIn").onclick=()=>{mode="signin";$("tabSignIn").classList.add("active");$("tabSignUp").classList.remove("active");$("authSubmit").textContent="Sign in";msg($("authMsg"),"")}
@@ -262,7 +269,7 @@ async function fetchHouseholds(){
 async function activateHousehold(id){
  const chosen=availableHouseholds.find(h=>h.id===id);
  if(!chosen)throw new Error("This household isn't available to your account.");
- household=chosen;
+ household=chosen;foodCatalog=[];catalogRequest++;catalogPhoto=null;catalogHousehold=null;$("foodModal").classList.add("hidden");renderFoodCatalog();
  localStorage.setItem(selectedHouseholdKey(),chosen.id);
  foods=[];
  $("householdIdText").textContent=household.id;
@@ -312,7 +319,7 @@ $("joinHouseholdBtn").onclick=async()=>{
  }catch(err){status.textContent="Could not join: "+err.message}
  finally{btn.disabled=false}
 };
-async function loadFoods(){if(!household)return;let r=await sb.from("food_items").select("*").eq("household_id",household.id).order("expiration",{ascending:true});if(r.error){alert(r.error.message);return}foods=r.data||[];renderDashboard();renderInventory();renderAlerts()}
+async function loadFoods(){if(!household)return;const loadingHousehold=household.id;let r=await sb.from("food_items").select("*").eq("household_id",household.id).order("expiration",{ascending:true});if(household?.id!==loadingHousehold)return;if(r.error){alert(r.error.message);return}foods=r.data||[];renderDashboard();renderInventory();renderAlerts()}
 function daysUntil(date){if(!date)return null;const a=new Date();a.setHours(0,0,0,0);const b=new Date(date+"T00:00:00");return Math.ceil((b-a)/86400000)}
 function alertFlags(f){const d=daysUntil(f.expiration);const qty=Number(f.quantity);const lowAt=Number(f.low_at);const low=Number.isFinite(qty)&&Number.isFinite(lowAt)&&qty<=lowAt;return {low,expired:d!==null&&d<0,soon:d!==null&&d>=0&&d<=Number(prefs.daysBefore)}}
 function status(f){const a=alertFlags(f);if(a.expired)return"expired";if(a.soon)return"soon";if(a.low)return"low";return"ok"}
@@ -322,10 +329,10 @@ function foodHtml(f){const pic=f.photo_data?'<img src="'+escapeHtml(f.photo_data
 function renderInventory(){let q=($("search")?.value||"").toLowerCase(),cat=$("filterCategory")?.value||"",loc=$("filterLocation")?.value||"",sort=$("sortBy")?.value||"expiration";let arr=foods.filter(f=>(!q||[f.name,f.brand,f.notes].join(" ").toLowerCase().includes(q))&&(!cat||cat==="All categories"||f.category===cat)&&(!loc||loc==="All locations"||f.location===loc));arr.sort((a,b)=>{if(sort==="name")return a.name.localeCompare(b.name);if(sort==="quantity")return Number(a.quantity)-Number(b.quantity);if(sort==="created_at")return String(b.created_at).localeCompare(String(a.created_at));return String(a.expiration||"9999").localeCompare(String(b.expiration||"9999"))});$("inventoryList").innerHTML=arr.map(foodHtml).join("")||'<div class="empty">No food items found.</div>'}
 function renderAlerts(){const bad=foods.filter(f=>{const a=alertFlags(f);return a.low||a.expired||a.soon;});$("alertExpired").textContent=foods.filter(f=>alertFlags(f).expired).length;$("alertSoon").textContent=foods.filter(f=>alertFlags(f).soon).length;$("alertLow").textContent=foods.filter(f=>alertFlags(f).low).length;$("alertList").innerHTML=bad.map(foodHtml).join("")||'<div class="empty">No alerts.</div>'}
 $("search").oninput=renderInventory;$("filterCategory").onchange=renderInventory;$("filterLocation").onchange=renderInventory;$("sortBy").onchange=renderInventory;
-function openFood(id){editingId=id||null;$("foodModalTitle").textContent=id?"Edit Food":"Add Food";$("foodForm").reset();clearOnlinePhoto();onlinePhotoDeclined=!!id;$("onlinePhotoStatus").textContent=id?"Existing picture is preserved. Click Find product picture online to replace it.":"Enter a food name and leave the field, or scan a barcode, to look for a picture.";$("foodPhotoStatus").textContent="No new picture selected.";$("removePhoto").checked=false;$("foodId").value=id||"";if(id){const f=foods.find(x=>x.id===id);if(!f)return;$("foodName").value=f.name||"";$("foodBrand").value=f.brand||"";$("foodCategory").value=f.category||prefs.categories[0];$("foodQty").value=f.quantity;$("foodUnit").value=f.unit||prefs.units[0];$("foodLow").value=f.low_at??1;$("foodDesired").value=f.desired_stock??0;$("foodExpiration").value=f.expiration||"";$("foodLocation").value=f.location||prefs.locations[0];$("foodNotes").value=f.notes||""}$("foodModal").classList.remove("hidden")}
+function openFood(id){if(!household){alert("Select a household first.");return}catalogPhoto=null;catalogHousehold=household.id;editingId=id||null;$("foodModalTitle").textContent=id?"Edit Food":"Add Food";$("foodForm").reset();clearOnlinePhoto();onlinePhotoDeclined=!!id;$("onlinePhotoStatus").textContent=id?"Existing picture is preserved. Click Find product picture online to replace it.":"Enter a food name and leave the field, or scan a barcode, to look for a picture.";$("foodPhotoStatus").textContent="No new picture selected.";$("removePhoto").checked=false;$("foodId").value=id||"";if(id){const f=foods.find(x=>x.id===id);if(!f)return;$("foodName").value=f.name||"";$("foodBrand").value=f.brand||"";$("foodCategory").value=f.category||prefs.categories[0];$("foodQty").value=f.quantity;$("foodUnit").value=f.unit||prefs.units[0];$("foodLow").value=f.low_at??1;$("foodDesired").value=f.desired_stock??0;$("foodExpiration").value=f.expiration||"";$("foodLocation").value=f.location||prefs.locations[0];$("foodNotes").value=f.notes||""}$("foodModal").classList.remove("hidden")}
 window.editFood=id=>openFood(id);window.deleteFood=async id=>{if(!confirm("Delete this food item?"))return;let r=await sb.from("food_items").delete().eq("id",id).eq("household_id",household.id);if(r.error){alert(r.error.message);return}await loadFoods()}
 $("addFood").onclick=()=>openFood();$("addFoodTop").onclick=()=>openFood();$("closeFood").onclick=()=>$("foodModal").classList.add("hidden");$("cancelFood").onclick=()=>$("foodModal").classList.add("hidden");
-$("foodForm").onsubmit=async e=>{e.preventDefault();let photo=null;const file=$("foodPhotoGallery").files[0]||$("foodPhotoCamera").files[0];if(file){photo=await new Promise((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);const cleanup=()=>{try{URL.revokeObjectURL(url)}catch(e){}};img.onload=()=>{try{const max=1000,scale=Math.min(1,max/img.width,max/img.height),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});if(!ctx)throw new Error("Your browser could not create an image canvas.");ctx.drawImage(img,0,0,w,h);const out=c.toDataURL("image/jpeg",.72);cleanup();if(!out||out.length<100)throw new Error("The picture could not be converted.");resolve(out)}catch(err){cleanup();reject(err)}};img.onerror=()=>{cleanup();reject(new Error("Your phone returned a picture format that Chrome could not process. Please choose the photo from your gallery instead of taking it directly, then try again."))};img.src=url})}let row={household_id:household.id,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),desired_stock:Number($("foodDesired").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if($("removePhoto").checked)row.photo_data=null;else if(photo)row.photo_data=photo;else if(onlinePhotoUrl)row.photo_data=onlinePhotoUrl;let r=editingId?await sb.from("food_items").update(row).eq("id",editingId).eq("household_id",household.id):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
+$("foodForm").onsubmit=async e=>{e.preventDefault();if(!household)return;const saveHousehold=household.id,saveEditingId=editingId;let photo=null;const file=$("foodPhotoGallery").files[0]||$("foodPhotoCamera").files[0];if(file){photo=await new Promise((resolve,reject)=>{const img=new Image();const url=URL.createObjectURL(file);const cleanup=()=>{try{URL.revokeObjectURL(url)}catch(e){}};img.onload=()=>{try{const max=1000,scale=Math.min(1,max/img.width,max/img.height),w=Math.max(1,Math.round(img.width*scale)),h=Math.max(1,Math.round(img.height*scale));const c=document.createElement("canvas");c.width=w;c.height=h;const ctx=c.getContext("2d",{alpha:false});if(!ctx)throw new Error("Your browser could not create an image canvas.");ctx.drawImage(img,0,0,w,h);const out=c.toDataURL("image/jpeg",.72);cleanup();if(!out||out.length<100)throw new Error("The picture could not be converted.");resolve(out)}catch(err){cleanup();reject(err)}};img.onerror=()=>{cleanup();reject(new Error("Your phone returned a picture format that Chrome could not process. Please choose the photo from your gallery instead of taking it directly, then try again."))};img.src=url})}if(household?.id!==saveHousehold||catalogHousehold!==saveHousehold){alert("Household changed. Reopen the food before saving.");return}let row={household_id:saveHousehold,name:$("foodName").value.trim(),brand:$("foodBrand").value.trim()||null,quantity:Number($("foodQty").value),unit:$("foodUnit").value,low_at:Number($("foodLow").value||0),desired_stock:Number($("foodDesired").value||0),expiration:$("foodExpiration").value||null,location:$("foodLocation").value,category:$("foodCategory").value,notes:$("foodNotes").value.trim()||null};if($("removePhoto").checked)row.photo_data=null;else if(photo)row.photo_data=photo;else if(onlinePhotoUrl)row.photo_data=onlinePhotoUrl;else if(catalogPhoto)row.photo_data=catalogPhoto;let r=saveEditingId?await sb.from("food_items").update(row).eq("id",saveEditingId).eq("household_id",saveHousehold):await sb.from("food_items").insert(row);if(r.error){alert(r.error.message);return}$("foodModal").classList.add("hidden");await loadFoods()}
 
 let barcodeStream=null, barcodeTimer=null;
 function stopBarcodeScanner(){if(barcodeTimer){clearInterval(barcodeTimer);barcodeTimer=null}if(barcodeStream){barcodeStream.getTracks().forEach(t=>t.stop());barcodeStream=null}const v=$("barcodeVideo");if(v)v.srcObject=null;$("barcodeModal").classList.add("hidden")}
@@ -405,6 +412,47 @@ $("saveAlertSettings").onclick=async()=>{prefs.daysBefore=Math.max(0,Number($("d
 $("saveCustomize").onclick=()=>{const parse=s=>s.split(",").map(x=>x.trim()).filter(Boolean);prefs.categories=parse($("customCategories").value)||defaults.categories;prefs.locations=parse($("customLocations").value)||defaults.locations;prefs.units=parse($("customUnits").value)||defaults.units;savePrefs();setupSelects();alert("Custom options saved.")}
 $("exportData").onclick=()=>{const blob=new Blob([JSON.stringify({exported_at:new Date().toISOString(),items:foods},null,2)],{type:"application/json"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="kitchen-keeper-inventory.json";a.click();URL.revokeObjectURL(a.href)}
 $("importData").onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=JSON.parse(await file.text());const items=Array.isArray(data)?data:data.items;if(!Array.isArray(items))throw new Error("No items found in this file.");for(const x of items){const row={household_id:household.id,name:x.name||"Unnamed",brand:x.brand||null,quantity:Number(x.quantity)||0,unit:x.unit||"each",low_at:Number(x.low_at)||0,desired_stock:Number(x.desired_stock)||0,expiration:x.expiration||null,location:x.location||"Other",category:x.category||"Other",notes:x.notes||null,photo_data:x.photo_data||null};delete row.id;delete row.created_at;delete row.updated_at;let r=await sb.from("food_items").insert(row);if(r.error)throw r.error}await loadFoods();alert("Inventory imported.")}catch(err){alert("Import failed: "+err.message)}e.target.value=""}
+
+// Food catalog contains reusable product details; quantity and expiration belong to inventory only.
+
+async function loadFoodCatalog(){
+ const id=household?.id,request=++catalogRequest;
+ foodCatalog=[];renderFoodCatalog();
+ if(!id){$("catalogMessage").textContent="Join or select a household first.";return}
+ $("catalogMessage").textContent="Loading saved foods…";
+ const r=await sb.from("food_catalog").select("*").eq("household_id",id).order("name");
+ if(household?.id!==id||request!==catalogRequest)return;
+ if(r.error){$("catalogMessage").textContent="Could not load food database. Run the food catalog SQL setup, then tap Refresh. Details: "+r.error.message;return}
+ foodCatalog=r.data||[];$("catalogMessage").textContent=foodCatalog.length+" saved foods · shared with this household";renderFoodCatalog();
+}
+function renderFoodCatalog(){
+ const list=$("catalogList"),q=$("catalogSearch").value.trim().toLowerCase();list.replaceChildren();
+ for(const f of foodCatalog.filter(f=>[f.name,f.brand,f.category].join(" ").toLowerCase().includes(q))){
+  const card=document.createElement("div");card.className="item";
+  const info=document.createElement("div");
+  if(f.photo_data){const img=document.createElement("img");img.src=f.photo_data;img.alt=f.name;img.style.cssText="width:58px;height:58px;object-fit:cover;border-radius:10px;float:left;margin-right:12px";info.append(img)}
+  const title=document.createElement("div");title.className="item-title";title.textContent=f.name;
+  const detail=document.createElement("div");detail.className="muted";detail.textContent=[f.brand,f.category,f.unit].filter(Boolean).join(" · ");
+  const button=document.createElement("button");button.type="button";button.className="primary";button.textContent="Add to inventory";button.onclick=()=>addCatalogFood(f.id);
+  info.append(title,detail);card.append(info,button);list.append(card);
+ }
+ if(!list.children.length){const empty=document.createElement("p");empty.className="empty";empty.textContent=q?"No saved foods match your search.":"Foods you save in inventory will appear here, even after you delete them from inventory.";list.append(empty)}
+}
+function addCatalogFood(id){
+ const f=foodCatalog.find(x=>x.id===id&&x.household_id===household?.id);if(!f)return;
+ openFood();catalogHousehold=household.id;catalogPhoto=f.photo_data||null;onlinePhotoDeclined=true;
+ $("foodModalTitle").textContent="Add saved food to inventory";
+ for(const [field,value] of Object.entries({foodName:f.name,foodBrand:f.brand||"",foodQty:1,foodLow:f.low_at??1,foodDesired:f.desired_stock??0,foodExpiration:"",foodNotes:f.notes||""}))$(field).value=value;
+ for(const [field,value] of Object.entries({foodUnit:f.unit,foodCategory:f.category,foodLocation:f.location})){
+  if(value&&!Array.from($(field).options).some(x=>x.value===value)){const option=document.createElement("option");option.value=value;option.textContent=value;$(field).append(option)}
+  if(value)$(field).value=value;
+ }
+ $("onlinePhotoStatus").textContent="Saved product details loaded. Choose the current quantity and a new expiration date.";
+ if(catalogPhoto){$("onlinePhotoImg").src=catalogPhoto;$("onlinePhotoCaption").textContent="Saved food picture";$("onlinePhotoPreview").style.display="block"}
+ $("foodQty").focus();
+}
+$("catalogSearch").oninput=renderFoodCatalog;
+$("refreshCatalog").onclick=loadFoodCatalog;
 
 sb.auth.getSession().then(async r=>{if(r.data.session)await bootUser(r.data.session.user)});
 sb.auth.onAuthStateChange((_e,s)=>{if(s&&!user)bootUser(s.user)});
